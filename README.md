@@ -4,9 +4,9 @@ FPL Email Bot extracts information from the FPL API and creates a summary with w
 
 ## Requirements
 
-- Windows (Sorry).
-- Azure subscription (optional)
+- Windows OS (Sorry)
 - An email account you control
+- Azure subscription (optional)
 
 ## Setup
 
