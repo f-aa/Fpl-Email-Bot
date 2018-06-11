@@ -3,7 +3,6 @@ using Microsoft.Azure.WebJobs.Host;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
 using System;
-using System.Configuration;
 using System.IO;
 using System.Text;
 
@@ -18,6 +17,7 @@ namespace FplBot
         private const string GAMEWEEK_FILENAME = "gameweek.txt";    // The name of the textfile to persist gameweek
         private const string STANDINGS_FILENAME = "standings.txt";  // The name of the textfile to persist weekly total standings
         private readonly bool useAzure = false;
+        private readonly string basePath;
         private readonly string gameweekPath;
         private readonly string standingsPath;
 
@@ -28,11 +28,12 @@ namespace FplBot
         /// <summary>
         /// Instantiates a new instance of the Persistence class
         /// </summary>
-        internal Persistence()
+        internal Persistence(bool useAzure)
         {
-            this.useAzure = bool.Parse(ConfigurationManager.AppSettings["useAzure"]);
-            this.gameweekPath = $"{Path.GetDirectoryName(Environment.GetCommandLineArgs()[0])}\\{GAMEWEEK_FILENAME}";
-            this.standingsPath = $"{Path.GetDirectoryName(Environment.GetCommandLineArgs()[0])}\\{STANDINGS_FILENAME}";
+            this.useAzure = useAzure;
+            this.basePath = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]);
+            this.gameweekPath = $"{basePath}\\{GAMEWEEK_FILENAME}";
+            this.standingsPath = $"{basePath}\\{STANDINGS_FILENAME}";
             this.gameweek = 1; // default
         }
 

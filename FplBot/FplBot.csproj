@@ -147,7 +147,7 @@
     <Compile Include="Api\RootClasses.cs" />
     <Compile Include="Api\TeamClasses.cs" />
     <Compile Include="CaptainChoice.cs" />
-    <Compile Include="Fpl.cs" />
+    <Compile Include="FplBot.cs" />
     <Compile Include="Persistence.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

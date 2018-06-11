@@ -1,9 +1,16 @@
 ﻿using Flurl.Http;
 using FplBot.Api.Summary;
+using MailKit.Net.Smtp;
+using MimeKit;
+using MimeKit.Text;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace FplBot
@@ -11,7 +18,7 @@ namespace FplBot
     /// <summary>
     /// A class that's responsible for connecting to and processing the FPL API
     /// </summary>
-    internal class Fpl
+    internal class FplBot
     {
         private readonly string FplRootUri = "https://fantasy.premierleague.com/drf/bootstrap-static";
         private readonly string LeagueStandingsUri = "https://fantasy.premierleague.com/drf/leagues-classic-standings/{0}";
@@ -23,7 +30,19 @@ namespace FplBot
         private readonly Dictionary<long, Api.Picks.FplPicks> fplPicks;
         private readonly Dictionary<long, FplPlayerSummary> fplPlayerSummaries;
         private readonly Dictionary<long, Api.Player.FplPlayer> fplCaptains;
-        private readonly int currentEventId;
+
+        private readonly long leagueId;
+        private readonly bool attachTable;
+        private readonly string emailUser;
+        private readonly string emailPassword;
+        private readonly string emailFrom;
+        private readonly string smtpServer;
+        private readonly int smtpPort;
+        private readonly bool useAzure;
+        private readonly string azureBlobName;
+        private readonly int interval;
+        private string[] recipients;
+
         IOrderedEnumerable<TeamWeeklyResult> weeklyResults;
         IOrderedEnumerable<KeyValuePair<long, Api.Team.FplTeam>> lastWeekStandings;
         IOrderedEnumerable<KeyValuePair<long, Api.Team.FplTeam>> currentWeekStandings;
@@ -31,35 +50,93 @@ namespace FplBot
         private Api.Season.FplSeason fplSeason;
         private Api.Root.Event currentEvent;
         private Dictionary<long, Api.Player.FplPlayer> fplPlayers;
+        private Persistence persistence;
+
+        private int currentEventId;
+
+        private bool isInitialized = false;
+
+        public StringBuilder Output { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the Fpl class
         /// </summary>
         /// <param name="gameweekToProcess"></param>
-        internal Fpl(int gameweekToProcess)
+        internal FplBot()
         {
-            this.currentEventId = gameweekToProcess;
+            try
+            {
+                this.attachTable = bool.Parse(ConfigurationManager.AppSettings["attachTable"]);
+                this.leagueId = long.Parse(ConfigurationManager.AppSettings["leagueId"]);
+                this.emailUser = ConfigurationManager.AppSettings["emailUser"];
+                this.emailPassword = ConfigurationManager.AppSettings["emailPassword"];
+                this.emailFrom = ConfigurationManager.AppSettings["emailFrom"];
+                this.smtpServer = ConfigurationManager.AppSettings["smtpServer"];
+                this.smtpPort = int.Parse(ConfigurationManager.AppSettings["smtpPort"]);
+                this.useAzure = bool.Parse(ConfigurationManager.AppSettings["useAzure"]);
+                this.azureBlobName = ConfigurationManager.AppSettings["azureBlobName"];
+                this.interval = int.Parse(ConfigurationManager.AppSettings["interval"]);
+
+                if (string.IsNullOrWhiteSpace(this.emailUser) ||
+                    string.IsNullOrWhiteSpace(this.emailPassword) ||
+                    string.IsNullOrWhiteSpace(this.emailFrom) ||
+                    string.IsNullOrWhiteSpace(this.smtpServer) ||
+                    string.IsNullOrWhiteSpace(this.azureBlobName))
+                {
+                    throw new ArgumentException("Missing or incorrect configuration. Please make sure your FplBot.exe.config file is properly configured.");
+                }
+
+                this.recipients = ConfigurationManager.AppSettings["emailTo"].Split(';');
+                if (recipients == null || recipients.Count() < 1) throw new ArgumentException("Email recipients are not configured properly.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error trying to read FPL Bot configuration {ex.Message}");
+            }
+
             this.fplPlayers = new Dictionary<long, Api.Player.FplPlayer>();
             this.fplTeam = new Dictionary<long, Api.Team.FplTeam>();
             this.fplPicks = new Dictionary<long, Api.Picks.FplPicks>();
             this.fplPlayerSummaries = new Dictionary<long, FplPlayerSummary>();
             this.fplCaptains = new Dictionary<long, Api.Player.FplPlayer>();
+            this.persistence = new Persistence(this.useAzure);
+
+            this.Output = new StringBuilder();
+        }
+
+        /// <summary>
+        /// Initialize the FplBot
+        /// </summary>
+        /// <returns></returns>
+        internal async Task Initialize()
+        {
+            Console.WriteLine("Initializing FPL Bot...");
+
+            this.persistence.Initialize();
+
+            this.currentEventId = this.persistence.GetGameweek();
+
+            this.fplRoot = await this.FplRootUri.GetJsonAsync<Api.Root.FplRoot>().ConfigureAwait(false);
+            this.currentEvent = this.fplRoot.Events.Find(x => x.Id == this.currentEventId);
+
+            this.isInitialized = true;
         }
 
         /// <summary>
         /// Processes the information from the FPL API
         /// </summary>
-        /// <returns></returns>
-        internal async Task<StringBuilder> Process()
+        internal async Task Process()
         {
-            StringBuilder result = new StringBuilder();
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
 
-            result.AppendLine($"Beep boop! I am a robot. This is your weekly FPL update.").AppendLine();
+            this.Output.AppendLine($"Beep boop! I am a robot. This is your weekly FPL update.").AppendLine();
 
-            this.fplRoot = await this.FplRootUri.GetJsonAsync<Api.Root.FplRoot>().ConfigureAwait(false);
-            this.currentEvent = fplRoot.Events.Find(x => x.Id == this.currentEventId);
-
-            if (this.currentEvent != null && this.currentEvent.Finished.Value && this.currentEvent.DataChecked.Value)
+            // TODO: Not sure if this.currentEvent.Finished and this.currentEvent.DataChecked does what I think it does
+            if (this.isInitialized &&
+                this.currentEvent != null &&
+                this.currentEvent.Finished.Value &&     // Make sure gameweek is finished
+                this.currentEvent.DataChecked.Value)    // Make sure Match points and Bonus points have been processed and League Tables updated
             {
                 await this.LoadApiDataAsync();
 
@@ -74,54 +151,50 @@ namespace FplBot
                 string hitsTaken = this.PrintHitsTaken();
                 string chipsUsed = this.CalculateChipsUsed();
 
-                result.AppendLine(topResults);
-                result.AppendLine(bottomResults);
-                result.AppendLine(captains);
+                this.Output.AppendLine(topResults);
+                this.Output.AppendLine(bottomResults);
+                this.Output.AppendLine(captains);
 
                 if (!string.IsNullOrEmpty(movement))
                 {
-                    result.AppendLine(movement);
+                    this.Output.AppendLine(movement);
                 }
 
-                result.AppendLine("Notable news:").AppendLine();
+                if (this.attachTable)
+                {
+                    StringBuilder standings = this.GenerateStandingsTable();
+                    persistence.SaveStandings(standings);
+                }
 
-                result.Append("- ").AppendLine(averageResults);
-                result.Append("- ").AppendLine(pointsBenched);
-                result.Append("- ").AppendLine(hitsTaken);
-                result.Append("- ").AppendLine(chipsUsed);
+                this.Output.AppendLine("Notable news:").AppendLine();
 
-                result.AppendLine().AppendLine("Your friendly FPL bot will return next gameweek with another update.");
+                this.Output.Append("- ").AppendLine(averageResults);
+                this.Output.Append("- ").AppendLine(pointsBenched);
+                this.Output.Append("- ").AppendLine(hitsTaken);
+                this.Output.Append("- ").AppendLine(chipsUsed);
 
-                return result;
+                this.Output.AppendLine().AppendLine("Your friendly FPL bot will return next gameweek with another update.");
+
+                stopwatch.Stop();
+
+                this.Output.AppendLine();
+                this.Output.AppendLine($"Beep boop. This is diagnostics. Completed FPL processing in {((double)stopwatch.ElapsedMilliseconds / 1000).ToString("N1")} seconds.");
+
+                if(!this.SendEmail())
+                {
+                    throw new Exception("FPL Bot failed to send email. Terminating application.");
+                }
+
+                this.persistence.CompleteGameweek();
             }
-
-            return null;
         }
 
         /// <summary>
-        /// Generates the current overall standings for this league
+        /// Sleeps the process for the configured amount of time
         /// </summary>
-        /// <returns>A StringBuilder object with the current standings in plaintext format</returns>
-        internal StringBuilder GenerateStandingsTable()
+        internal void Wait()
         {
-            if (this.currentWeekStandings == null) return null;
-
-            StringBuilder standings = new StringBuilder();
-
-            // We're trying to do some padding here, but it still looks wonky in a lot of email clients
-            // Might move this to a txt attachment instead
-            int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Entry.Name.Length);
-            int index = 1;
-
-            standings.AppendLine("Current standings:").AppendLine(); ;
-
-            foreach (var team in this.currentWeekStandings)
-            {
-                standings.AppendLine($"{index.ToString().PadLeft(2)} \t{team.Value.Entry.Name.PadRight(longestTeamName)}\t{team.Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.ToString().PadLeft(4)}");
-                index++;
-            }
-
-            return standings;
+            Thread.Sleep(this.interval * 1000);
         }
 
         /// <summary>
@@ -131,7 +204,7 @@ namespace FplBot
         private async Task LoadApiDataAsync()
         {
             var playerTask = this.PlayersUri.GetJsonAsync<List<Api.Player.FplPlayer>>();
-            var leagueTask = string.Format(this.LeagueStandingsUri, ConfigurationManager.AppSettings["leagueId"]).GetJsonAsync<Api.Season.FplSeason>();
+            var leagueTask = string.Format(this.LeagueStandingsUri, this.leagueId).GetJsonAsync<Api.Season.FplSeason>();
 
             await Task.WhenAll(playerTask, leagueTask).ConfigureAwait(false);
 
@@ -206,7 +279,7 @@ namespace FplBot
                 .Where(x => x.ScoreBeforeHits == topGrossScore)
                 .Select(x => x.Name);
 
-            IEnumerable<string> topNames =  this.weeklyResults                      // Top 3ish teams for this week
+            IEnumerable<string> topNames = this.weeklyResults                      // Top 3ish teams for this week
                 .Where(x => x.Points >= top3Score)                                  // Find anyone that had top 3 score or better
                 .Where(x => x.Points < topScore)                                    // Exlude the first one
                 .Select(x => $"{x.Name} ({x.Points} pts)");                         // Prepare text
@@ -285,13 +358,13 @@ namespace FplBot
             StringBuilder result = new StringBuilder();
 
             long overallAverage = this.currentEvent.AverageEntryScore.Value;
-            long teamsAtAverageOrBetter = this.weeklyResults.Where(x=> x.Points > overallAverage).Count();
-            
+            long teamsAtAverageOrBetter = this.weeklyResults.Where(x => x.Points > overallAverage).Count();
+
             result.Append($"{teamsAtAverageOrBetter} teams managed to reach or beat the overall average of {overallAverage} points for the week. ");
 
             return result.ToString();
         }
-        
+
         /// <summary>
         /// Calculates the captaincy choices for the week.
         /// </summary>
@@ -320,7 +393,7 @@ namespace FplBot
             }
 
             foreach (var p in groupedViceCaptains.AsParallel())
-            {                
+            {
                 if (!this.fplPlayerSummaries.ContainsKey(p.Key))
                 {
                     FplPlayerSummary summary = await string.Format(this.PlayerSummaryUrI, p.Key).GetJsonAsync<FplPlayerSummary>().ConfigureAwait(false);
@@ -437,7 +510,7 @@ namespace FplBot
             string previousLastPlace = this.lastWeekStandings.Last().Value.Entry.Name;
             string currentLastPlace = this.currentWeekStandings.Last().Value.Entry.Name;
             long lastPlacePoints = this.currentWeekStandings.Last().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
-            
+
             if (previousLastPlace == currentLastPlace)
             {
                 result.Append($"{previousLastPlace} continues to languish in last place with a {TextUtilities.GetPoorAdjective()} {lastPlacePoints} points.");
@@ -535,7 +608,7 @@ namespace FplBot
 
             return result.ToString();
         }
-        
+
         /// <summary>
         /// Calculate which chips were used during this gameweek
         /// </summary>
@@ -567,9 +640,102 @@ namespace FplBot
             {
                 TextUtilities.StringJoinWithCommasAndAnd(result, teamBlurbs);
                 result.Append(" decided to spend one of their chips this week.");
-            }           
+            }
 
             return result.ToString();
+        }
+
+
+
+        /// <summary>
+        /// Generates the current overall standings for this league
+        /// </summary>
+        /// <returns>A StringBuilder object with the current standings in plaintext format</returns>
+        private StringBuilder GenerateStandingsTable()
+        {
+            if (this.currentWeekStandings == null) return null;
+
+            StringBuilder standings = new StringBuilder();
+
+            // We're trying to do some padding here, but it still looks wonky in a lot of email clients
+            // Might move this to a txt attachment instead
+            int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Entry.Name.Length);
+            int index = 1;
+
+            standings.AppendLine("Current standings:").AppendLine(); ;
+
+            foreach (var team in this.currentWeekStandings)
+            {
+                standings.AppendLine($"{index.ToString().PadLeft(2)} \t{team.Value.Entry.Name.PadRight(longestTeamName)}\t{team.Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.ToString().PadLeft(4)}");
+                index++;
+            }
+
+            return standings;
+        }
+
+        /// <summary>
+        /// Sends an email to participants in the league
+        /// </summary>
+        /// <param name="result"></param>
+        /// <remarks>Email addresses must be configured in the app.config file, as the API does not supply the addresses.</remarks>
+        private bool SendEmail()
+        {
+            try
+            {
+                if (!this.isInitialized || this.Output == null)
+                {
+                    throw new Exception("Could not find an output to email.");
+                }
+
+                var multipart = new Multipart("mixed");
+                var body = new TextPart(TextFormat.Plain) { Text = this.Output.ToString() };
+
+                multipart.Add(body);
+
+                if (this.attachTable)
+                {
+                    Stream stream = persistence.GetStandingsStream();
+
+                    MimePart attachment = new MimePart("plain", "txt")
+                    {
+                        Content = new MimeContent(stream, ContentEncoding.Default),
+                        ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                        ContentTransferEncoding = ContentEncoding.Base64,
+                        FileName = Path.GetFileName($"Standings-GW{this.currentEventId.ToString()}.txt")
+                    };
+
+                    multipart.Add(attachment);
+                }
+
+                MimeMessage message = new MimeMessage();
+                message.Subject = "Weekly update from your friendly FPL bot!";
+                message.Body = multipart;
+                message.From.Add(new MailboxAddress(this.emailFrom));
+
+                foreach (var r in this.recipients)
+                {
+                    if (!string.IsNullOrEmpty(r))
+                    {
+                        message.To.Add(new MailboxAddress(r));
+                    }
+                }
+
+                using (SmtpClient emailClient = new SmtpClient())
+                {
+                    emailClient.ServerCertificateValidationCallback = (s, c, h, e) => true;
+                    emailClient.Connect(this.smtpServer, this.smtpPort, false);
+                    emailClient.Authenticate(this.emailUser, this.emailPassword);
+                    emailClient.Send(message);
+                    emailClient.Disconnect(true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Unable to send email: {ex.Message}");
+                return false;
+            }
+
+            return true;
         }
     }
 }
