@@ -649,11 +649,36 @@ namespace FplBot
             int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Entry.Name.Length);
             int index = 1;
 
-            standings.AppendLine("Current standings:").AppendLine(); ;
+            standings.AppendLine($"Standings for {this.fplSeason.League.Name} after GW#{this.currentEventId}:");
+            standings.AppendLine("".PadLeft(longestTeamName + 22, '-')).AppendLine();
+            standings.AppendLine($"Rank Chg. LW   Team{string.Empty.PadLeft(longestTeamName - 4)}   Pts.");
+            standings.AppendLine("".PadLeft(longestTeamName + 22, '-')).AppendLine();
 
             foreach (var team in this.currentWeekStandings)
             {
-                standings.AppendLine($"{index.ToString().PadLeft(2)} \t{team.Value.Entry.Name.PadRight(longestTeamName)}\t{team.Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.ToString().PadLeft(4)}");
+                int lastRank = this.lastWeekStandings.Select((i, x) => new { Index = x + 1, TeamId = i.Key }).First(t => t.TeamId == team.Key).Index;
+                string currentRank = index.ToString().PadLeft(2);
+                string teamName = team.Value.Entry.Name.PadRight(longestTeamName);
+                string points = team.Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.ToString().PadLeft(4);
+
+                string movement;
+
+                if (index == lastRank)
+                {
+                    movement = "--";
+                }
+                else if (index > lastRank)
+                {
+                    movement = "dn";
+                }
+                else
+                {
+                    movement = "up";
+                }
+
+                standings.AppendLine($"{currentRank}   {movement}   {lastRank.ToString().PadLeft(2)}   {teamName}   {points}");
+
+                //standings.AppendLine($"{index.ToString().PadLeft(2)} {team.Value.Entry.Name.PadRight(longestTeamName)} {team.Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.ToString().PadLeft(4)}");
                 index++;
             }
 
