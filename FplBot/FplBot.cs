@@ -677,8 +677,6 @@ namespace FplBot
                 }
 
                 standings.AppendLine($"{currentRank}   {movement}   {lastRank.ToString().PadLeft(2)}   {teamName}   {points}");
-
-                //standings.AppendLine($"{index.ToString().PadLeft(2)} {team.Value.Entry.Name.PadRight(longestTeamName)} {team.Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.ToString().PadLeft(4)}");
                 index++;
             }
 
