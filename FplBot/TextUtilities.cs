@@ -5,6 +5,9 @@ using System.Text;
 
 namespace FplBot
 {
+    /// <summary>
+    /// A gnarly class that allows us to make more natural sounding email messages
+    /// </summary>
     internal static class TextUtilities
     {
         private static Random rng;
@@ -12,36 +15,40 @@ namespace FplBot
         /// <summary>
         /// Join a list of string items together with natural use of commas and the word 'and'
         /// </summary>
-        /// <param name="builderToAppendTo">The builder to append the string to</param>
         /// <param name="strings">The list of strings we want to join</param>
+        /// <returns>A string of all the items joined together</returns>
         /// <remarks>Uses Oxford comma rules</remarks>
-        internal static void StringJoinWithCommasAndAnd(StringBuilder builderToAppendTo, IEnumerable<string> strings)
+        internal static string NaturalParse(IEnumerable<string> strings)
         {
+            StringBuilder text = new StringBuilder();
+
             if (strings.Count() == 0)
             {
-                return;
+                return string.Empty;
             }
 
             for (int count = 0; count < strings.Count(); count++)
             {
                 if (strings.Count() == 1 || (count < strings.Count() - 1 && strings.Count() < 3))
                 {
-                    builderToAppendTo.Append($"{strings.ElementAt(count)}");
+                    text.Append($"{strings.ElementAt(count)}");
                 }
                 else if (count < strings.Count() - 1)
                 {
-                    builderToAppendTo.Append($"{strings.ElementAt(count)}, ");
+                    text.Append($"{strings.ElementAt(count)}, ");
                 }
                 else
                 {
-                    if (builderToAppendTo[builderToAppendTo.Length - 1] == ' ')
+                    if (text.Length > 1 && text[text.Length - 1] == ' ')
                     {
-                        builderToAppendTo.Remove(builderToAppendTo.Length - 1, 1);
+                        text.Remove(text.Length - 1, 1);
                     }
 
-                    builderToAppendTo.Append($" and {strings.ElementAt(count)}");
+                    text.Append($" and {strings.ElementAt(count)}");
                 }
             }
+
+            return text.ToString();
         }
 
         /// <summary>
@@ -63,9 +70,21 @@ namespace FplBot
         /// Returns was if singular, were if plural
         /// </summary>
         /// <param name="count"></param>
+        /// <param name="predeterminer">Whether to include all/both after 'were' for plurals</param>
         /// <returns></returns>
-        internal static string WasWere(int count)
+        internal static string WasWere(int count, bool predeterminer = false)
         {
+            if(predeterminer && count > 1)
+            {
+                if (count > 2)
+                {
+                    return "were all";
+                }
+                else
+                {
+                    return "were both";
+                }
+            }
             if (count > 1)
             {
                 return "were";

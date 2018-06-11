@@ -31,6 +31,7 @@ namespace FplBot
         private readonly Dictionary<long, Api.Picks.FplPicks> fplPicks;
         private readonly Dictionary<long, FplPlayerSummary> fplPlayerSummaries;
         private readonly Dictionary<long, Api.Player.FplPlayer> fplCaptains;
+        private readonly ILogger logger;
 
         private readonly long leagueId;
         private readonly bool attachTable;
@@ -43,7 +44,6 @@ namespace FplBot
         private readonly string azureBlobName;
         private readonly int interval;
         private string[] recipients;
-        private ILogger logger;
 
         IOrderedEnumerable<TeamWeeklyResult> weeklyResults;
         IOrderedEnumerable<KeyValuePair<long, Api.Team.FplTeam>> lastWeekStandings;
@@ -120,9 +120,9 @@ namespace FplBot
             this.logger.Log("Initializing FPL Bot...");
 
             this.persistence.Initialize();
-
             this.currentEventId = this.persistence.GetGameweek();
 
+            this.logger.Log("Fetching current Event from FPL API...");
             this.fplRoot = await this.FplRootUri.GetJsonAsync<Api.Root.FplRoot>().ConfigureAwait(false);
             this.currentEvent = this.fplRoot.Events.Find(x => x.Id == this.currentEventId);
 
@@ -182,10 +182,6 @@ namespace FplBot
 
                 this.Output.AppendLine().AppendLine("Your friendly FPL bot will return next gameweek with another update.");
 
-                stopwatch.Stop();
-
-                this.Output.AppendLine();
-                this.Output.AppendLine($"Beep boop. This is diagnostics. Completed FPL processing in {((double)stopwatch.ElapsedMilliseconds / 1000).ToString("N1")} seconds.");
 
                 if(!this.SendEmail())
                 {
@@ -194,6 +190,9 @@ namespace FplBot
                 }
 
                 this.persistence.CompleteGameweek();
+
+                stopwatch.Stop();
+                this.logger.Log($"Beep boop. This is diagnostics. Completed FPL processing in {((double)stopwatch.ElapsedMilliseconds / 1000).ToString("N1")} seconds.");
             }
         }
 
@@ -212,6 +211,8 @@ namespace FplBot
         /// <returns></returns>
         private async Task LoadApiDataAsync()
         {
+            this.logger.Log("Loading league and player information from FPL API:");
+
             var playerTask = this.PlayersUri.GetJsonAsync<List<Api.Player.FplPlayer>>();
             var leagueTask = string.Format(this.LeagueStandingsUri, this.leagueId).GetJsonAsync<Api.Season.FplSeason>();
 
@@ -222,6 +223,8 @@ namespace FplBot
 
             foreach (Api.Season.Result standing in this.fplSeason.Standings.Results.AsParallel())
             {
+                this.logger.Log($"Fetching {standing.EntryName}...");
+
                 var teamTask = string.Format(this.TeamUri, standing.Entry).GetJsonAsync<Api.Team.FplTeam>();
                 var picksTask = string.Format(this.PicksUri, standing.Entry, this.currentEventId).GetJsonAsync<Api.Picks.FplPicks>();
 
@@ -296,35 +299,19 @@ namespace FplBot
                 .Select(x => $"{x.Name} ({x.Points} pts)");                         // Prepare text
 
             bool daviesRuleInEffect = !(topNamesBeforeTransferCost.All(x => winnerNames.Contains(x)) && winnerNames.All(x => topNamesBeforeTransferCost.Contains(x)));
+            long winnerHitCost = this.weeklyResults.First().HitsTakenCost;
 
             if (daviesRuleInEffect)
             {
-                TextUtilities.StringJoinWithCommasAndAnd(result, topNamesBeforeTransferCost);
-                if (topNamesBeforeTransferCost.Count() > 2)
-                {
-                    result.Append(" were all");
-                }
-                else if (topNamesBeforeTransferCost.Count() > 1)
-                {
-                    result.Append(" were both");
-                }
-                else
-                {
-                    result.Append(" was");
-                }
-
-                result.Append(" in line to win the week until the ever so controversial Dan Davies rule was applied. But once the dust settled the "); // come up with something better here
+                result.Append($"{topNamesBeforeTransferCost} ${TextUtilities.WasWere(topNamesBeforeTransferCost.Count(), true)} in line to win the week until the ever so controversial Dan Davies rule was applied. But once the dust settled the ");
             }
             else
             {
                 result.Append("The ");
             }
 
-            result.Append($"winner{TextUtilities.Pluralize(winnerNames.Count())} for gameweek #{this.currentEventId} {TextUtilities.WasWere(winnerNames.Count())} ");
-            TextUtilities.StringJoinWithCommasAndAnd(result, winnerNames);
-            result.Append($" with {topScore} points");
+            result.Append($"winner{TextUtilities.Pluralize(winnerNames.Count())} for gameweek #{this.currentEventId} {TextUtilities.WasWere(winnerNames.Count())} {TextUtilities.NaturalParse(winnerNames)} with {topScore} points");
 
-            long winnerHitCost = this.weeklyResults.First().HitsTakenCost;
             if (winnerHitCost > 0 && winnerNames.Count() == 1)
             {
                 result.Append($" despite taking a -{winnerHitCost} point hit! ");
@@ -334,9 +321,7 @@ namespace FplBot
                 result.Append("! ");
             }
 
-            result.Append($"Rounding up the top {topNames.Count() + winnerNames.Count()} for the week {TextUtilities.WasWere(winnerNames.Count())} ");
-            TextUtilities.StringJoinWithCommasAndAnd(result, topNames);
-            result.AppendLine(". ");
+            result.AppendLine($"Rounding up the top {topNames.Count() + winnerNames.Count()} for the week {TextUtilities.WasWere(winnerNames.Count())} {TextUtilities.NaturalParse(topNames)}.");
 
             return result.ToString();
         }
@@ -355,9 +340,7 @@ namespace FplBot
                 .Skip(this.weeklyResults.Count() - 4)           // Get the last 4 teams
                 .Select(t => $"{t.Name} ({t.Points} pts)");     // Prepare text
 
-            result.Append($"The worst ranking teams this week were ");
-            TextUtilities.StringJoinWithCommasAndAnd(result, worstTeams);
-            result.AppendLine(". You should probably be embarrassed. ");
+            result.AppendLine($"The worst ranking teams this week were {TextUtilities.NaturalParse(worstTeams)}. You should probably be embarrassed. ");
 
             return result.ToString();
         }
@@ -486,17 +469,8 @@ namespace FplBot
                 }
             }
 
-            result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} ");
-            TextUtilities.StringJoinWithCommasAndAnd(result, bestTeamIds.Select(i => $"{this.fplTeam[i].Entry.Name}").ToList());
-            result.Append($" did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from ");
-            TextUtilities.StringJoinWithCommasAndAnd(result, bestPlayerIds.Select(i => $"{this.fplPlayers[i].FirstName} {this.fplPlayers[i].SecondName}").ToList());
-            result.Append(". ");
-
-            result.Append("On the other end of the spectrum were ");
-            TextUtilities.StringJoinWithCommasAndAnd(result, worstTeamIds.Select(i => $"{this.fplTeam[i].Entry.Name}").ToList());
-            result.Append($" who had picked ");
-            TextUtilities.StringJoinWithCommasAndAnd(result, worstPlayerIds.Select(i => $"{this.fplPlayers[i].FirstName} {this.fplPlayers[i].SecondName}").ToList());
-            result.AppendLine($" for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
+            result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeam[i].Entry.Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.fplPlayers[i].FirstName} {this.fplPlayers[i].SecondName}").ToList())}. ");
+            result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeam[i].Entry.Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.fplPlayers[i].FirstName} {this.fplPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
 
             return result.ToString();
         }
@@ -515,6 +489,10 @@ namespace FplBot
             string currentFirstPlace = this.currentWeekStandings.First().Value.Entry.Name;
             long firstPlacePoints = this.currentWeekStandings.First().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
 
+            string previousLastPlace = this.lastWeekStandings.Last().Value.Entry.Name;
+            string currentLastPlace = this.currentWeekStandings.Last().Value.Entry.Name;
+            long lastPlacePoints = this.currentWeekStandings.Last().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
+
             if (previousFirstPlace == currentFirstPlace)
             {
                 result.Append($"{previousFirstPlace} stay at the top of the table with {firstPlacePoints} points.");
@@ -525,10 +503,6 @@ namespace FplBot
             }
 
             result.Append(" At the other end ");
-
-            string previousLastPlace = this.lastWeekStandings.Last().Value.Entry.Name;
-            string currentLastPlace = this.currentWeekStandings.Last().Value.Entry.Name;
-            long lastPlacePoints = this.currentWeekStandings.Last().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
 
             if (previousLastPlace == currentLastPlace)
             {
@@ -574,8 +548,7 @@ namespace FplBot
                 .Select(a => this.fplTeam[a.Key].Entry.Name)
                 .ToList();
 
-            TextUtilities.StringJoinWithCommasAndAnd(result, teansWithHighest);
-            result.Append($" left ");
+            result.Append($"{TextUtilities.NaturalParse(teansWithHighest)} left ");
 
             if (highestPoints > 20)
             {
@@ -601,23 +574,20 @@ namespace FplBot
 
             if (teamBlurbs.Count() > 0)
             {
+                string blurb = TextUtilities.NaturalParse(teamBlurbs);
+
                 if (teamBlurbs.Count() == 1)
                 {
-                    result.Append("The only team to take a hit this week was ");
+                    result.Append($"The only team to take a hit this week was {blurb}.");
                 }
-
-                TextUtilities.StringJoinWithCommasAndAnd(result, teamBlurbs);
-
-                if (teamBlurbs.Count() == 2)
+                else if (teamBlurbs.Count() == 2)
                 {
-                    result.Append(" both took transfer hits");
+                    result.Append($"{blurb} both took transfer hits.");
                 }
                 else if (teamBlurbs.Count() > 2)
                 {
-                    result.Append(" all took hits this week");
+                    result.Append($"{blurb} all took hits this week.");
                 }
-
-                result.Append(". ");
 
                 return result.ToString();
             }
@@ -650,19 +620,15 @@ namespace FplBot
             }
             else if (teamBlurbs.Count() > 5)
             {
-                result.Append("A flurry of activity this week as ");
-                TextUtilities.StringJoinWithCommasAndAnd(result, teamBlurbs);
-                result.Append(" all played chips.");
+                result.Append($"A flurry of activity this week as {TextUtilities.NaturalParse(teamBlurbs)} all played chips.");
             }
             else if (teamBlurbs.Count() == 1)
             {
-                TextUtilities.StringJoinWithCommasAndAnd(result, teamBlurbs);
-                result.Append(" was the only team to use a chip this week.");
+                result.Append($"{TextUtilities.NaturalParse(teamBlurbs)} was the only team to use a chip this week.");
             }
             else
             {
-                TextUtilities.StringJoinWithCommasAndAnd(result, teamBlurbs);
-                result.Append(" decided to spend one of their chips this week.");
+                result.Append($"{TextUtilities.NaturalParse(teamBlurbs)} decided to spend one of their chips this week.");
             }
 
             return result.ToString();
@@ -705,10 +671,7 @@ namespace FplBot
 
             try
             {
-                if (!this.isInitialized || this.Output == null)
-                {
-                    throw new Exception("Could not find an output to email.");
-                }
+                if (this.Output == null) throw new Exception("Could not find an output to email.");
 
                 var multipart = new Multipart("mixed");
                 var body = new TextPart(TextFormat.Plain) { Text = this.Output.ToString() };
