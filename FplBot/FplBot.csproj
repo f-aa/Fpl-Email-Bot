@@ -148,6 +148,8 @@
     <Compile Include="Api\TeamClasses.cs" />
     <Compile Include="CaptainChoice.cs" />
     <Compile Include="FplBot.cs" />
+    <Compile Include="Logging\ILogger.cs" />
+    <Compile Include="Logging\Logger.cs" />
     <Compile Include="Persistence.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

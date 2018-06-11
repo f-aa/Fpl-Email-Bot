@@ -1,4 +1,5 @@
-﻿using Microsoft.Azure.WebJobs;
+﻿using FplBot.Logging;
+using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
@@ -13,13 +14,15 @@ namespace FplBot
     /// </summary>
     internal class Persistence
     {
-        private const string BLOB_STORAGE_NAME = "oskana";          // The name of the azure blob container
         private const string GAMEWEEK_FILENAME = "gameweek.txt";    // The name of the textfile to persist gameweek
         private const string STANDINGS_FILENAME = "standings.txt";  // The name of the textfile to persist weekly total standings
+
+        private readonly ILogger logger;
         private readonly bool useAzure = false;
         private readonly string basePath;
         private readonly string gameweekPath;
         private readonly string standingsPath;
+        private readonly string blobStorageName;
 
         private CloudBlockBlob gameweekBlob;
         private CloudBlockBlob standingsBlob;
@@ -28,13 +31,22 @@ namespace FplBot
         /// <summary>
         /// Instantiates a new instance of the Persistence class
         /// </summary>
-        internal Persistence(bool useAzure)
+        /// <param name="useAzure">Whether to use Azure Blob Storage to persist gameweek data</param>
+        /// <param name="blobStorageName">The name of the blob storage we want to save gameweek data to</param>
+        internal Persistence(ILogger logger, bool useAzure = false, string blobStorageName = null)
         {
+            this.logger = logger;
             this.useAzure = useAzure;
+            this.blobStorageName = blobStorageName;
             this.basePath = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]);
             this.gameweekPath = $"{basePath}\\{GAMEWEEK_FILENAME}";
             this.standingsPath = $"{basePath}\\{STANDINGS_FILENAME}";
             this.gameweek = 1; // default
+
+            if (useAzure && string.IsNullOrWhiteSpace(blobStorageName))
+            {
+                throw new ArgumentException("If webjob is configured to use Azure, a blob storage name must be specified!");
+            }
         }
 
         /// <summary>
@@ -42,12 +54,14 @@ namespace FplBot
         /// </summary>
         internal void Initialize()
         {
+            this.logger.Log("Initializing persistent storage...");
+
             if (useAzure)
             {
                 string connectionString = AmbientConnectionStringProvider.Instance.GetConnectionString(ConnectionStringNames.Storage);
                 CloudStorageAccount storageAccount = CloudStorageAccount.Parse(connectionString);
                 CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-                CloudBlobContainer container = blobClient.GetContainerReference(BLOB_STORAGE_NAME);
+                CloudBlobContainer container = blobClient.GetContainerReference(this.blobStorageName);
                 container.CreateIfNotExists();
 
                 this.gameweekBlob = container.GetBlockBlobReference(GAMEWEEK_FILENAME);
@@ -62,6 +76,8 @@ namespace FplBot
                 {
                     this.standingsBlob.UploadText(string.Empty);  // Create a file if it doesn't exist already
                 }
+
+                this.logger.Log($"Storing gameweek data in location: {container.Uri}");
             }
             else
             {
@@ -69,13 +85,15 @@ namespace FplBot
                 {
                     File.WriteAllText(this.gameweekPath, this.gameweek.ToString());
                 }
+
+                this.logger.Log($"Storing gameweek data in location: {this.basePath}");
             }
         }
 
         /// <summary>
         /// Gets the current gameweek from persistent storage
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The currently active gameweek retriveed from persistent storage</returns>
         internal int GetGameweek()
         {
             this.gameweek = this.useAzure ? int.Parse(gameweekBlob.DownloadText()) : int.Parse(File.ReadAllText(this.gameweekPath));
@@ -120,7 +138,7 @@ namespace FplBot
         /// <summary>
         /// Saves the current standings to persistent storage
         /// </summary>
-        /// <param name="result">A Strinbuilder object representing the current standings</param>
+        /// <param name="result">A StringBuilder object representing the current standings</param>
         internal void SaveStandings(StringBuilder result)
         {
             if (result == null) return;

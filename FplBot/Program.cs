@@ -1,5 +1,5 @@
-﻿using Microsoft.Azure.WebJobs;
-using System;
+﻿using FplBot.Logging;
+using Microsoft.Azure.WebJobs;
 
 namespace FplBot
 {
@@ -7,6 +7,7 @@ namespace FplBot
     {
         static void Main()
         {
+            var logger = new Logger();
             var config = new JobHostConfiguration();
 
             if (config.IsDevelopment)
@@ -16,14 +17,14 @@ namespace FplBot
 
             while (true)
             {
-                FplBot bot = new FplBot();
+                FplBot bot = new FplBot(logger);
 
                 bot.Initialize().ConfigureAwait(false).GetAwaiter().GetResult();    // Get preliminary stuff setup
                 bot.Process().ConfigureAwait(false).GetAwaiter().GetResult();       // Do the processing
 
-                Console.WriteLine(bot.Output.ToString());       // Print result to console
+                logger.Log(bot.Output.ToString());                                  // Print result to console
 
-                bot.Wait();                                     // Wait for next time
+                bot.Wait();                                                         // Wait
             }
         }
     }

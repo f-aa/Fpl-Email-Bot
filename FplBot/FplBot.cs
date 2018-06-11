@@ -1,5 +1,6 @@
 ﻿using Flurl.Http;
 using FplBot.Api.Summary;
+using FplBot.Logging;
 using MailKit.Net.Smtp;
 using MimeKit;
 using MimeKit.Text;
@@ -42,6 +43,7 @@ namespace FplBot
         private readonly string azureBlobName;
         private readonly int interval;
         private string[] recipients;
+        private ILogger logger;
 
         IOrderedEnumerable<TeamWeeklyResult> weeklyResults;
         IOrderedEnumerable<KeyValuePair<long, Api.Team.FplTeam>> lastWeekStandings;
@@ -62,10 +64,14 @@ namespace FplBot
         /// Initializes a new instance of the Fpl class
         /// </summary>
         /// <param name="gameweekToProcess"></param>
-        internal FplBot()
+        internal FplBot(ILogger logger)
         {
+            this.logger = logger;
+
             try
             {
+                this.logger.Log("Loading configuration file...");
+
                 this.attachTable = bool.Parse(ConfigurationManager.AppSettings["attachTable"]);
                 this.leagueId = long.Parse(ConfigurationManager.AppSettings["leagueId"]);
                 this.emailUser = ConfigurationManager.AppSettings["emailUser"];
@@ -91,7 +97,8 @@ namespace FplBot
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error trying to read FPL Bot configuration {ex.Message}");
+                this.logger.Log($"Error trying to read FPL Bot configuration: {ex.Message}.");
+                Environment.Exit(-1);
             }
 
             this.fplPlayers = new Dictionary<long, Api.Player.FplPlayer>();
@@ -99,7 +106,7 @@ namespace FplBot
             this.fplPicks = new Dictionary<long, Api.Picks.FplPicks>();
             this.fplPlayerSummaries = new Dictionary<long, FplPlayerSummary>();
             this.fplCaptains = new Dictionary<long, Api.Player.FplPlayer>();
-            this.persistence = new Persistence(this.useAzure);
+            this.persistence = new Persistence(this.logger, this.useAzure, this.azureBlobName);
 
             this.Output = new StringBuilder();
         }
@@ -110,7 +117,7 @@ namespace FplBot
         /// <returns></returns>
         internal async Task Initialize()
         {
-            Console.WriteLine("Initializing FPL Bot...");
+            this.logger.Log("Initializing FPL Bot...");
 
             this.persistence.Initialize();
 
@@ -182,7 +189,8 @@ namespace FplBot
 
                 if(!this.SendEmail())
                 {
-                    throw new Exception("FPL Bot failed to send email. Terminating application.");
+                    this.logger.Log("FPL Bot failed to send email. Terminating application.");
+                    Environment.Exit(-1);
                 }
 
                 this.persistence.CompleteGameweek();
@@ -194,6 +202,7 @@ namespace FplBot
         /// </summary>
         internal void Wait()
         {
+            this.logger.Log($"Waiting {this.interval} seconds to retry...");
             Thread.Sleep(this.interval * 1000);
         }
 
@@ -259,6 +268,8 @@ namespace FplBot
         /// <returns></returns>
         private string CalculateTop()
         {
+            this.logger.Log("Calculating top positions...");
+
             // Currently implements the Dan Davies rule
             // To find the winner of the gameweek we take every score and subtract the transfer cost for that week
             // This helps counteract managers taking multiple hits every week in an attempt to win the weekly prize
@@ -336,6 +347,8 @@ namespace FplBot
         /// <returns></returns>
         private string CalculateBottom()
         {
+            this.logger.Log("Calculating bottom positions...");
+
             StringBuilder result = new StringBuilder();
 
             IEnumerable<string> worstTeams = this.weeklyResults // The worst performing teams of the week
@@ -355,6 +368,8 @@ namespace FplBot
         /// <returns></returns>
         private string CalculateAverages()
         {
+            this.logger.Log("Calculating averages...");
+
             StringBuilder result = new StringBuilder();
 
             long overallAverage = this.currentEvent.AverageEntryScore.Value;
@@ -371,6 +386,8 @@ namespace FplBot
         /// <returns></returns>
         private async Task<string> CalculateCaptains()
         {
+            this.logger.Log("Calculating captains...");
+
             StringBuilder result = new StringBuilder();
 
             var groupedCaptains = this.fplPicks
@@ -490,6 +507,8 @@ namespace FplBot
         /// <returns></returns>
         private string CalculateTopAndBottomStandings()
         {
+            this.logger.Log("Calculating top and bottom movement...");
+
             StringBuilder result = new StringBuilder();
 
             string previousFirstPlace = this.lastWeekStandings.First().Value.Entry.Name;
@@ -531,6 +550,8 @@ namespace FplBot
         /// <returns></returns>
         private string CalculatePointsOnBench()
         {
+            this.logger.Log("Calculating points benched...");
+
             StringBuilder result = new StringBuilder();
             Dictionary<long, long> teams = new Dictionary<long, long>();
             long highestPoints = 0;
@@ -615,6 +636,8 @@ namespace FplBot
         /// <returns></returns>
         private string CalculateChipsUsed()
         {
+            this.logger.Log("Calculating chips used...");
+
             StringBuilder result = new StringBuilder();
 
             var teamBlurbs = this.weeklyResults
@@ -644,8 +667,6 @@ namespace FplBot
 
             return result.ToString();
         }
-
-
 
         /// <summary>
         /// Generates the current overall standings for this league
@@ -680,6 +701,8 @@ namespace FplBot
         /// <remarks>Email addresses must be configured in the app.config file, as the API does not supply the addresses.</remarks>
         private bool SendEmail()
         {
+            this.logger.Log("Attempting to send email...");
+
             try
             {
                 if (!this.isInitialized || this.Output == null)
@@ -722,16 +745,18 @@ namespace FplBot
 
                 using (SmtpClient emailClient = new SmtpClient())
                 {
+                    this.logger.Log($"Connecting to {this.smtpServer}...");
                     emailClient.ServerCertificateValidationCallback = (s, c, h, e) => true;
                     emailClient.Connect(this.smtpServer, this.smtpPort, false);
                     emailClient.Authenticate(this.emailUser, this.emailPassword);
                     emailClient.Send(message);
                     emailClient.Disconnect(true);
+                    this.logger.Log("Email sent successfully.");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Unable to send email: {ex.Message}");
+                this.logger.Log($"Unable to send email: {ex.Message}");
                 return false;
             }
 
