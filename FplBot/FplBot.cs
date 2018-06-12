@@ -485,11 +485,11 @@ namespace FplBot
 
             StringBuilder result = new StringBuilder();
 
-            string previousFirstPlace = this.lastWeekStandings.First().Value.Entry.Name;
+            string previousFirstPlace = this.lastWeekStandings.First().Value.Entry.Name ?? string.Empty;
             string currentFirstPlace = this.currentWeekStandings.First().Value.Entry.Name;
             long firstPlacePoints = this.currentWeekStandings.First().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
 
-            string previousLastPlace = this.lastWeekStandings.Last().Value.Entry.Name;
+            string previousLastPlace = this.lastWeekStandings.Last().Value.Entry.Name ?? string.Empty;
             string currentLastPlace = this.currentWeekStandings.Last().Value.Entry.Name;
             long lastPlacePoints = this.currentWeekStandings.Last().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
 
@@ -650,24 +650,29 @@ namespace FplBot
             int index = 1;
 
             standings.AppendLine($"Standings for {this.fplSeason.League.Name} after GW#{this.currentEventId}:");
-            standings.AppendLine("".PadLeft(longestTeamName + 22, '-')).AppendLine();
+            standings.AppendLine("".PadLeft(longestTeamName + 22, '-'));
             standings.AppendLine($"Rank Chg. LW   Team{string.Empty.PadLeft(longestTeamName - 4)}   Pts.");
             standings.AppendLine("".PadLeft(longestTeamName + 22, '-')).AppendLine();
 
             foreach (var team in this.currentWeekStandings)
             {
-                int lastRank = this.lastWeekStandings.Select((i, x) => new { Index = x + 1, TeamId = i.Key }).First(t => t.TeamId == team.Key).Index;
+                // if this is the first gameweek, there was no rank last week so we'll return -1 and print out -- for movement
+                int calculatedLastRank = this.currentEventId == 1 ? -1 : this.lastWeekStandings
+                    .Select((t, i) => new { Index = i + 1, TeamId = t.Key })
+                    .First(t => t.TeamId == team.Key)
+                    .Index;
                 string currentRank = index.ToString().PadLeft(2);
+                string previousRank = this.currentEventId == 1 ? "--" : calculatedLastRank.ToString().PadLeft(2);
                 string teamName = team.Value.Entry.Name.PadRight(longestTeamName);
                 string points = team.Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.ToString().PadLeft(4);
 
                 string movement;
 
-                if (index == lastRank)
+                if (index == calculatedLastRank || calculatedLastRank < 0)
                 {
                     movement = "--";
                 }
-                else if (index > lastRank)
+                else if (index > calculatedLastRank)
                 {
                     movement = "dn";
                 }
@@ -676,7 +681,7 @@ namespace FplBot
                     movement = "up";
                 }
 
-                standings.AppendLine($"{currentRank}   {movement}   {lastRank.ToString().PadLeft(2)}   {teamName}   {points}");
+                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {teamName}   {points}");
                 index++;
             }
 
