@@ -137,14 +137,14 @@ namespace FplBot
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            this.Output.AppendLine($"Beep boop! I am a robot. This is your weekly FPL update.").AppendLine();
-
             // TODO: Not sure if this.currentEvent.Finished and this.currentEvent.DataChecked does what I think it does
             if (this.isInitialized &&
                 this.currentEvent != null &&
                 this.currentEvent.Finished.Value &&     // Make sure gameweek is finished
                 this.currentEvent.DataChecked.Value)    // Make sure Match points and Bonus points have been processed and League Tables updated
             {
+                this.Output.AppendLine($"Beep boop! I am a robot. This is your weekly FPL update.").AppendLine();
+
                 await this.LoadApiDataAsync();
 
                 this.CalculateWeeklyRank();

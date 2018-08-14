@@ -1,52 +1,49 @@
 ﻿namespace FplBot.Api.Season
 {
+    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
 
-    using System.Globalization;
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Converters;
-        
     public partial class FplSeason
     {
-        [JsonProperty("new_entries")]
+        [JsonProperty("new_entries", NullValueHandling = NullValueHandling.Ignore)]
         public NewEntries NewEntries { get; set; }
 
-        [JsonProperty("league")]
+        [JsonProperty("league", NullValueHandling = NullValueHandling.Ignore)]
         public League League { get; set; }
 
-        [JsonProperty("standings")]
-        public NewEntries Standings { get; set; }
+        [JsonProperty("standings", NullValueHandling = NullValueHandling.Ignore)]
+        public Standings Standings { get; set; }
 
-        [JsonProperty("update_status")]
-        public long UpdateStatus { get; set; }
+        [JsonProperty("update_status", NullValueHandling = NullValueHandling.Ignore)]
+        public long? UpdateStatus { get; set; }
     }
 
     public partial class League
     {
-        [JsonProperty("id")]
-        public long Id { get; set; }
+        [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Id { get; set; }
 
-        [JsonProperty("leagueban_set")]
+        [JsonProperty("leagueban_set", NullValueHandling = NullValueHandling.Ignore)]
         public List<object> LeaguebanSet { get; set; }
 
-        [JsonProperty("name")]
+        [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
         public string Name { get; set; }
 
         [JsonProperty("short_name")]
         public object ShortName { get; set; }
 
-        [JsonProperty("created")]
-        public DateTimeOffset Created { get; set; }
+        [JsonProperty("created", NullValueHandling = NullValueHandling.Ignore)]
+        public DateTimeOffset? Created { get; set; }
 
-        [JsonProperty("closed")]
-        public bool Closed { get; set; }
+        [JsonProperty("closed", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Closed { get; set; }
 
-        [JsonProperty("forum_disabled")]
-        public bool ForumDisabled { get; set; }
+        [JsonProperty("forum_disabled", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ForumDisabled { get; set; }
 
-        [JsonProperty("make_code_public")]
-        public bool MakeCodePublic { get; set; }
+        [JsonProperty("make_code_public", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? MakeCodePublic { get; set; }
 
         [JsonProperty("rank")]
         public object Rank { get; set; }
@@ -54,127 +51,88 @@
         [JsonProperty("size")]
         public object Size { get; set; }
 
-        [JsonProperty("league_type")]
+        [JsonProperty("league_type", NullValueHandling = NullValueHandling.Ignore)]
         public string LeagueType { get; set; }
 
-        [JsonProperty("_scoring")]
+        [JsonProperty("_scoring", NullValueHandling = NullValueHandling.Ignore)]
         public string Scoring { get; set; }
 
-        [JsonProperty("reprocess_standings")]
-        public bool ReprocessStandings { get; set; }
+        [JsonProperty("reprocess_standings", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ReprocessStandings { get; set; }
 
-        [JsonProperty("admin_entry")]
-        public long AdminEntry { get; set; }
+        [JsonProperty("admin_entry", NullValueHandling = NullValueHandling.Ignore)]
+        public long? AdminEntry { get; set; }
 
-        [JsonProperty("start_event")]
-        public long StartEvent { get; set; }
+        [JsonProperty("start_event", NullValueHandling = NullValueHandling.Ignore)]
+        public long? StartEvent { get; set; }
     }
 
     public partial class NewEntries
     {
-        [JsonProperty("has_next")]
-        public bool HasNext { get; set; }
+        [JsonProperty("has_next", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? HasNext { get; set; }
 
-        [JsonProperty("number")]
-        public long Number { get; set; }
+        [JsonProperty("number", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Number { get; set; }
 
-        [JsonProperty("results")]
+        [JsonProperty("results", NullValueHandling = NullValueHandling.Ignore)]
+        public List<object> Results { get; set; }
+    }
+
+    public partial class Standings
+    {
+        [JsonProperty("has_next", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? HasNext { get; set; }
+
+        [JsonProperty("number", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Number { get; set; }
+
+        [JsonProperty("results", NullValueHandling = NullValueHandling.Ignore)]
         public List<Result> Results { get; set; }
     }
 
     public partial class Result
     {
-        [JsonProperty("id")]
-        public long Id { get; set; }
+        [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Id { get; set; }
 
-        [JsonProperty("entry_name")]
+        [JsonProperty("entry_name", NullValueHandling = NullValueHandling.Ignore)]
         public string EntryName { get; set; }
 
-        [JsonProperty("event_total")]
-        public long EventTotal { get; set; }
+        [JsonProperty("event_total", NullValueHandling = NullValueHandling.Ignore)]
+        public long? EventTotal { get; set; }
 
-        [JsonProperty("player_name")]
+        [JsonProperty("player_name", NullValueHandling = NullValueHandling.Ignore)]
         public string PlayerName { get; set; }
 
-        [JsonProperty("movement")]
-        public Movement Movement { get; set; }
+        [JsonProperty("movement", NullValueHandling = NullValueHandling.Ignore)]
+        public string Movement { get; set; }
 
-        [JsonProperty("own_entry")]
-        public bool OwnEntry { get; set; }
+        [JsonProperty("own_entry", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? OwnEntry { get; set; }
 
-        [JsonProperty("rank")]
-        public long Rank { get; set; }
+        [JsonProperty("rank", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Rank { get; set; }
 
-        [JsonProperty("last_rank")]
-        public long LastRank { get; set; }
+        [JsonProperty("last_rank", NullValueHandling = NullValueHandling.Ignore)]
+        public long? LastRank { get; set; }
 
-        [JsonProperty("rank_sort")]
-        public long RankSort { get; set; }
+        [JsonProperty("rank_sort", NullValueHandling = NullValueHandling.Ignore)]
+        public long? RankSort { get; set; }
 
-        [JsonProperty("total")]
-        public long Total { get; set; }
+        [JsonProperty("total", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Total { get; set; }
 
-        [JsonProperty("entry")]
+        [JsonProperty("entry", NullValueHandling = NullValueHandling.Ignore)]
         public long Entry { get; set; }
 
-        [JsonProperty("league")]
-        public long League { get; set; }
+        [JsonProperty("league", NullValueHandling = NullValueHandling.Ignore)]
+        public long? League { get; set; }
 
-        [JsonProperty("start_event")]
-        public long StartEvent { get; set; }
+        [JsonProperty("start_event", NullValueHandling = NullValueHandling.Ignore)]
+        public long? StartEvent { get; set; }
 
-        [JsonProperty("stop_event")]
-        public long StopEvent { get; set; }
-    }
-
-    public enum Movement { Down, Same, Up };
-
-    internal static class Converter
-    {
-        public static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
-        {
-            MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
-            DateParseHandling = DateParseHandling.None,
-            Converters = {
-                new MovementConverter(),
-                new IsoDateTimeConverter { DateTimeStyles = DateTimeStyles.AssumeUniversal }
-            },
-        };
-    }
-
-    internal class MovementConverter : JsonConverter
-    {
-        public override bool CanConvert(Type t) => t == typeof(Movement) || t == typeof(Movement?);
-
-        public override object ReadJson(JsonReader reader, Type t, object existingValue, JsonSerializer serializer)
-        {
-            if (reader.TokenType == JsonToken.Null) return null;
-            var value = serializer.Deserialize<string>(reader);
-            switch (value)
-            {
-                case "down":
-                    return Movement.Down;
-                case "same":
-                    return Movement.Same;
-                case "up":
-                    return Movement.Up;
-            }
-            throw new Exception("Cannot unmarshal type Movement");
-        }
-
-        public override void WriteJson(JsonWriter writer, object untypedValue, JsonSerializer serializer)
-        {
-            var value = (Movement)untypedValue;
-            switch (value)
-            {
-                case Movement.Down:
-                    serializer.Serialize(writer, "down"); return;
-                case Movement.Same:
-                    serializer.Serialize(writer, "same"); return;
-                case Movement.Up:
-                    serializer.Serialize(writer, "up"); return;
-            }
-            throw new Exception("Cannot marshal type Movement");
-        }
+        [JsonProperty("stop_event", NullValueHandling = NullValueHandling.Ignore)]
+        public long? StopEvent { get; set; }
     }
 }

@@ -1,19 +1,31 @@
 ﻿namespace FplBot.Api.Root
 {
+    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
 
-    using System.Globalization;
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Converters;
-
     public partial class FplRoot
     {
-        [JsonProperty("phases", NullValueHandling = NullValueHandling.Ignore)]
-        public List<Phase> Phases { get; set; }
-
         [JsonProperty("elements", NullValueHandling = NullValueHandling.Ignore)]
         public List<Element> Elements { get; set; }
+
+        [JsonProperty("total-players", NullValueHandling = NullValueHandling.Ignore)]
+        public long? TotalPlayers { get; set; }
+
+        [JsonProperty("player")]
+        public object Player { get; set; }
+
+        [JsonProperty("element_types", NullValueHandling = NullValueHandling.Ignore)]
+        public List<ElementTypeElement> ElementTypes { get; set; }
+
+        [JsonProperty("watched", NullValueHandling = NullValueHandling.Ignore)]
+        public List<object> Watched { get; set; }
+
+        [JsonProperty("next-event", NullValueHandling = NullValueHandling.Ignore)]
+        public long? NextEvent { get; set; }
+
+        [JsonProperty("phases", NullValueHandling = NullValueHandling.Ignore)]
+        public List<Phase> Phases { get; set; }
 
         [JsonProperty("stats", NullValueHandling = NullValueHandling.Ignore)]
         public Stats Stats { get; set; }
@@ -24,29 +36,23 @@
         [JsonProperty("current-event", NullValueHandling = NullValueHandling.Ignore)]
         public long? CurrentEvent { get; set; }
 
-        [JsonProperty("total-players", NullValueHandling = NullValueHandling.Ignore)]
-        public long? TotalPlayers { get; set; }
-
         [JsonProperty("teams", NullValueHandling = NullValueHandling.Ignore)]
         public List<Team> Teams { get; set; }
-
-        [JsonProperty("element_types", NullValueHandling = NullValueHandling.Ignore)]
-        public List<ElementTypeElement> ElementTypes { get; set; }
-
-        [JsonProperty("last-entry-event", NullValueHandling = NullValueHandling.Ignore)]
-        public long? LastEntryEvent { get; set; }
 
         [JsonProperty("stats_options", NullValueHandling = NullValueHandling.Ignore)]
         public List<StatsOption> StatsOptions { get; set; }
 
+        [JsonProperty("last-entry-event", NullValueHandling = NullValueHandling.Ignore)]
+        public long? LastEntryEvent { get; set; }
+
+        [JsonProperty("entry")]
+        public object Entry { get; set; }
+
         [JsonProperty("next_event_fixtures", NullValueHandling = NullValueHandling.Ignore)]
-        public List<object> NextEventFixtures { get; set; }
+        public List<NextEventFixture> NextEventFixtures { get; set; }
 
         [JsonProperty("events", NullValueHandling = NullValueHandling.Ignore)]
         public List<Event> Events { get; set; }
-
-        [JsonProperty("next-event")]
-        public object NextEvent { get; set; }
     }
 
     public partial class ElementTypeElement
@@ -82,7 +88,7 @@
         public long? TeamCode { get; set; }
 
         [JsonProperty("status", NullValueHandling = NullValueHandling.Ignore)]
-        public Status? Status { get; set; }
+        public string Status { get; set; }
 
         [JsonProperty("code", NullValueHandling = NullValueHandling.Ignore)]
         public long? Code { get; set; }
@@ -177,7 +183,7 @@
         [JsonProperty("ep_this", NullValueHandling = NullValueHandling.Ignore)]
         public string EpThis { get; set; }
 
-        [JsonProperty("ep_next")]
+        [JsonProperty("ep_next", NullValueHandling = NullValueHandling.Ignore)]
         public string EpNext { get; set; }
 
         [JsonProperty("special", NullValueHandling = NullValueHandling.Ignore)]
@@ -264,7 +270,7 @@
         [JsonProperty("data_checked", NullValueHandling = NullValueHandling.Ignore)]
         public bool? DataChecked { get; set; }
 
-        [JsonProperty("highest_scoring_entry", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonProperty("highest_scoring_entry")]
         public long? HighestScoringEntry { get; set; }
 
         [JsonProperty("deadline_time_epoch", NullValueHandling = NullValueHandling.Ignore)]
@@ -276,7 +282,7 @@
         [JsonProperty("deadline_time_formatted", NullValueHandling = NullValueHandling.Ignore)]
         public string DeadlineTimeFormatted { get; set; }
 
-        [JsonProperty("highest_score", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonProperty("highest_score")]
         public long? HighestScore { get; set; }
 
         [JsonProperty("is_previous", NullValueHandling = NullValueHandling.Ignore)]
@@ -607,6 +613,63 @@
         public long? ScoringSavesLimit { get; set; }
     }
 
+    public partial class NextEventFixture
+    {
+        [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Id { get; set; }
+
+        [JsonProperty("kickoff_time_formatted", NullValueHandling = NullValueHandling.Ignore)]
+        public string KickoffTimeFormatted { get; set; }
+
+        [JsonProperty("started", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Started { get; set; }
+
+        [JsonProperty("event_day", NullValueHandling = NullValueHandling.Ignore)]
+        public long? EventDay { get; set; }
+
+        [JsonProperty("deadline_time", NullValueHandling = NullValueHandling.Ignore)]
+        public DateTimeOffset? DeadlineTime { get; set; }
+
+        [JsonProperty("deadline_time_formatted", NullValueHandling = NullValueHandling.Ignore)]
+        public string DeadlineTimeFormatted { get; set; }
+
+        [JsonProperty("stats", NullValueHandling = NullValueHandling.Ignore)]
+        public List<object> Stats { get; set; }
+
+        [JsonProperty("code", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Code { get; set; }
+
+        [JsonProperty("kickoff_time", NullValueHandling = NullValueHandling.Ignore)]
+        public DateTimeOffset? KickoffTime { get; set; }
+
+        [JsonProperty("team_h_score")]
+        public object TeamHScore { get; set; }
+
+        [JsonProperty("team_a_score")]
+        public object TeamAScore { get; set; }
+
+        [JsonProperty("finished", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? Finished { get; set; }
+
+        [JsonProperty("minutes", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Minutes { get; set; }
+
+        [JsonProperty("provisional_start_time", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? ProvisionalStartTime { get; set; }
+
+        [JsonProperty("finished_provisional", NullValueHandling = NullValueHandling.Ignore)]
+        public bool? FinishedProvisional { get; set; }
+
+        [JsonProperty("event", NullValueHandling = NullValueHandling.Ignore)]
+        public long? Event { get; set; }
+
+        [JsonProperty("team_a", NullValueHandling = NullValueHandling.Ignore)]
+        public long? TeamA { get; set; }
+
+        [JsonProperty("team_h", NullValueHandling = NullValueHandling.Ignore)]
+        public long? TeamH { get; set; }
+    }
+
     public partial class Phase
     {
         [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
@@ -614,6 +677,9 @@
 
         [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
         public string Name { get; set; }
+
+        [JsonProperty("num_winners", NullValueHandling = NullValueHandling.Ignore)]
+        public long? NumWinners { get; set; }
 
         [JsonProperty("start_event", NullValueHandling = NullValueHandling.Ignore)]
         public long? StartEvent { get; set; }
@@ -661,10 +727,10 @@
         public long? Id { get; set; }
 
         [JsonProperty("current_event_fixture", NullValueHandling = NullValueHandling.Ignore)]
-        public List<CurrentEventFixture> CurrentEventFixture { get; set; }
+        public List<TEventFixture> CurrentEventFixture { get; set; }
 
         [JsonProperty("next_event_fixture", NullValueHandling = NullValueHandling.Ignore)]
-        public List<object> NextEventFixture { get; set; }
+        public List<TEventFixture> NextEventFixture { get; set; }
 
         [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
         public string Name { get; set; }
@@ -703,7 +769,7 @@
         public object Form { get; set; }
 
         [JsonProperty("link_url", NullValueHandling = NullValueHandling.Ignore)]
-        public LinkUrl? LinkUrl { get; set; }
+        public string LinkUrl { get; set; }
 
         [JsonProperty("strength_overall_home", NullValueHandling = NullValueHandling.Ignore)]
         public long? StrengthOverallHome { get; set; }
@@ -727,7 +793,7 @@
         public long? TeamDivision { get; set; }
     }
 
-    public partial class CurrentEventFixture
+    public partial class TEventFixture
     {
         [JsonProperty("is_home", NullValueHandling = NullValueHandling.Ignore)]
         public bool? IsHome { get; set; }
@@ -746,89 +812,5 @@
 
         [JsonProperty("opponent", NullValueHandling = NullValueHandling.Ignore)]
         public long? Opponent { get; set; }
-    }
-
-    public enum Status { A, D, I, U };
-
-    public enum LinkUrl { Empty };
-
-    internal static class Converter
-    {
-        public static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
-        {
-            MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
-            DateParseHandling = DateParseHandling.None,
-            Converters = {
-                new LinkUrlConverter(),
-                new StatusConverter(),
-                new IsoDateTimeConverter { DateTimeStyles = DateTimeStyles.AssumeUniversal }
-            },
-        };
-    }
-
-    internal class LinkUrlConverter : JsonConverter
-    {
-        public override bool CanConvert(Type t) => t == typeof(LinkUrl) || t == typeof(LinkUrl?);
-
-        public override object ReadJson(JsonReader reader, Type t, object existingValue, JsonSerializer serializer)
-        {
-            if (reader.TokenType == JsonToken.Null) return null;
-            var value = serializer.Deserialize<string>(reader);
-            if (value == "")
-            {
-                return LinkUrl.Empty;
-            }
-            throw new Exception("Cannot unmarshal type LinkUrl");
-        }
-
-        public override void WriteJson(JsonWriter writer, object untypedValue, JsonSerializer serializer)
-        {
-            var value = (LinkUrl)untypedValue;
-            if (value == LinkUrl.Empty)
-            {
-                serializer.Serialize(writer, ""); return;
-            }
-            throw new Exception("Cannot marshal type LinkUrl");
-        }
-    }
-
-    internal class StatusConverter : JsonConverter
-    {
-        public override bool CanConvert(Type t) => t == typeof(Status) || t == typeof(Status?);
-
-        public override object ReadJson(JsonReader reader, Type t, object existingValue, JsonSerializer serializer)
-        {
-            if (reader.TokenType == JsonToken.Null) return null;
-            var value = serializer.Deserialize<string>(reader);
-            switch (value)
-            {
-                case "a":
-                    return Status.A;
-                case "d":
-                    return Status.D;
-                case "i":
-                    return Status.I;
-                case "u":
-                    return Status.U;
-            }
-            throw new Exception("Cannot unmarshal type Status");
-        }
-
-        public override void WriteJson(JsonWriter writer, object untypedValue, JsonSerializer serializer)
-        {
-            var value = (Status)untypedValue;
-            switch (value)
-            {
-                case Status.A:
-                    serializer.Serialize(writer, "a"); return;
-                case Status.D:
-                    serializer.Serialize(writer, "d"); return;
-                case Status.I:
-                    serializer.Serialize(writer, "i"); return;
-                case Status.U:
-                    serializer.Serialize(writer, "u"); return;
-            }
-            throw new Exception("Cannot marshal type Status");
-        }
     }
 }

@@ -1,9 +1,7 @@
 ﻿namespace FplBot.Api.Player
 {
     using Newtonsoft.Json;
-    using Newtonsoft.Json.Converters;
     using System;
-    using System.Globalization;
 
     public partial class FplPlayer
     {
@@ -20,7 +18,7 @@
         public long? TeamCode { get; set; }
 
         [JsonProperty("status", NullValueHandling = NullValueHandling.Ignore)]
-        public Status? Status { get; set; }
+        public string Status { get; set; }
 
         [JsonProperty("code", NullValueHandling = NullValueHandling.Ignore)]
         public long? Code { get; set; }
@@ -115,7 +113,7 @@
         [JsonProperty("ep_this", NullValueHandling = NullValueHandling.Ignore)]
         public string EpThis { get; set; }
 
-        [JsonProperty("ep_next")]
+        [JsonProperty("ep_next", NullValueHandling = NullValueHandling.Ignore)]
         public string EpNext { get; set; }
 
         [JsonProperty("special", NullValueHandling = NullValueHandling.Ignore)]
@@ -180,60 +178,5 @@
 
         [JsonProperty("team", NullValueHandling = NullValueHandling.Ignore)]
         public long? Team { get; set; }
-    }
-
-    public enum Status { A, D, I, U };
-
-    internal static class Converter
-    {
-        public static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
-        {
-            MetadataPropertyHandling = MetadataPropertyHandling.Ignore,
-            DateParseHandling = DateParseHandling.None,
-            Converters = {
-                new StatusConverter(),
-                new IsoDateTimeConverter { DateTimeStyles = DateTimeStyles.AssumeUniversal }
-            },
-        };
-    }
-
-    internal class StatusConverter : JsonConverter
-    {
-        public override bool CanConvert(Type t) => t == typeof(Status) || t == typeof(Status?);
-
-        public override object ReadJson(JsonReader reader, Type t, object existingValue, JsonSerializer serializer)
-        {
-            if (reader.TokenType == JsonToken.Null) return null;
-            var value = serializer.Deserialize<string>(reader);
-            switch (value)
-            {
-                case "a":
-                    return Status.A;
-                case "d":
-                    return Status.D;
-                case "i":
-                    return Status.I;
-                case "u":
-                    return Status.U;
-            }
-            throw new Exception("Cannot unmarshal type Status");
-        }
-
-        public override void WriteJson(JsonWriter writer, object untypedValue, JsonSerializer serializer)
-        {
-            var value = (Status)untypedValue;
-            switch (value)
-            {
-                case Status.A:
-                    serializer.Serialize(writer, "a"); return;
-                case Status.D:
-                    serializer.Serialize(writer, "d"); return;
-                case Status.I:
-                    serializer.Serialize(writer, "i"); return;
-                case Status.U:
-                    serializer.Serialize(writer, "u"); return;
-            }
-            throw new Exception("Cannot marshal type Status");
-        }
     }
 }
