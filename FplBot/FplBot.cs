@@ -502,11 +502,11 @@ namespace FplBot
 
             if (previousLastPlace == currentLastPlace)
             {
-                result.Append($"{previousLastPlace} continues to languish in last place with a {TextUtilities.GetPoorAdjective()} {lastPlacePoints} points.");
+                result.Append($"{previousLastPlace} continues to languish in last place with {TextUtilities.GetPoorAdjective()} {lastPlacePoints} points.");
             }
             else
             {
-                result.Append($"{currentLastPlace} is the new {TextUtilities.GetPoorNoun()} in last place with a {TextUtilities.GetPoorAdjective()} {lastPlacePoints} points total.");
+                result.Append($"{currentLastPlace} is the new {TextUtilities.GetPoorNoun()} in last place with {TextUtilities.GetPoorAdjective()} {lastPlacePoints} points total.");
             }
 
             result.AppendLine();
@@ -548,7 +548,7 @@ namespace FplBot
 
             if (highestPoints > 20)
             {
-                result.Append($"an {TextUtilities.GetGoodAdjective()} ");
+                result.Append($"{TextUtilities.GetGoodAdjective()} ");
             }
 
             result.Append($"{highestPoints} points on the bench which was the highest in the league.");
