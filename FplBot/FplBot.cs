@@ -506,7 +506,7 @@ namespace FplBot
             }
             else
             {
-                result.Append($"{currentLastPlace} is the new bottom feeder with a {TextUtilities.GetPoorAdjective()} {lastPlacePoints} points total.");
+                result.Append($"{currentLastPlace} is the new {TextUtilities.GetPoorNoun()} in last place with a {TextUtilities.GetPoorAdjective()} {lastPlacePoints} points total.");
             }
 
             result.AppendLine();

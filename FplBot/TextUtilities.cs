@@ -142,5 +142,25 @@ namespace FplBot
 
             return adjectives[rng.Next(0, adjectives.Count)];
         }
+
+        internal static string GetPoorNoun()
+        {
+            if (rng == null)
+            {
+                rng = new Random();
+            }
+
+            List<string> nouns = new List<string>();
+
+            nouns.Add("bottom feeder");
+            nouns.Add("deadbeat");
+            nouns.Add("loafer");
+            nouns.Add("slouch");
+            nouns.Add("sucker");
+            nouns.Add("chump");
+            nouns.Add("sap");
+
+            return nouns[rng.Next(0, nouns.Count)];
+        }
     }
 }
