@@ -87,7 +87,7 @@ namespace FplBot
                     string.IsNullOrWhiteSpace(this.emailPassword) ||
                     string.IsNullOrWhiteSpace(this.emailFrom) ||
                     string.IsNullOrWhiteSpace(this.smtpServer) ||
-                    string.IsNullOrWhiteSpace(this.azureBlobName))
+                    (useAzure && string.IsNullOrWhiteSpace(this.azureBlobName)))
                 {
                     throw new ArgumentException("Missing or incorrect configuration. Please make sure your FplBot.exe.config file is properly configured.");
                 }
@@ -137,7 +137,6 @@ namespace FplBot
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            // TODO: Not sure if this.currentEvent.Finished and this.currentEvent.DataChecked does what I think it does
             if (this.isInitialized &&
                 this.currentEvent != null &&
                 this.currentEvent.Finished.Value &&     // Make sure gameweek is finished

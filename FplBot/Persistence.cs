@@ -38,7 +38,7 @@ namespace FplBot
             this.logger = logger;
             this.useAzure = useAzure;
             this.blobStorageName = blobStorageName;
-            this.basePath = Path.GetDirectoryName(Environment.GetCommandLineArgs()[0]);
+            this.basePath = AppDomain.CurrentDomain.BaseDirectory;
             this.gameweekPath = $"{basePath}\\{GAMEWEEK_FILENAME}";
             this.standingsPath = $"{basePath}\\{STANDINGS_FILENAME}";
             this.gameweek = 1; // default
@@ -67,6 +67,8 @@ namespace FplBot
                 this.gameweekBlob = container.GetBlockBlobReference(GAMEWEEK_FILENAME);
                 this.standingsBlob = container.GetBlockBlobReference(STANDINGS_FILENAME);
 
+                this.logger.Log($"Attempting to store gameweek data to: {container.Uri}");
+
                 if (!gameweekBlob.Exists())
                 {
                     this.gameweekBlob.UploadText(this.gameweek.ToString());  // Create a file if it doesn't exist already
@@ -76,17 +78,15 @@ namespace FplBot
                 {
                     this.standingsBlob.UploadText(string.Empty);  // Create a file if it doesn't exist already
                 }
-
-                this.logger.Log($"Storing gameweek data in location: {container.Uri}");
             }
             else
             {
-                if(!File.Exists(this.gameweekPath))
+                this.logger.Log($"Attempting to store gameweek data to: {this.basePath}");
+
+                if (!File.Exists(this.gameweekPath))
                 {
                     File.WriteAllText(this.gameweekPath, this.gameweek.ToString());
                 }
-
-                this.logger.Log($"Storing gameweek data in location: {this.basePath}");
             }
         }
 
