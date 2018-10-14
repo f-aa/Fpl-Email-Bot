@@ -43,7 +43,6 @@ namespace FplBot
         private readonly bool useAzure;
         private readonly string azureBlobName;
         private readonly int interval;
-        private readonly bool daviesRuleEnabled;
         private string[] recipients;
 
         IOrderedEnumerable<TeamWeeklyResult> weeklyResults;
@@ -83,7 +82,6 @@ namespace FplBot
                 this.useAzure = bool.Parse(ConfigurationManager.AppSettings["useAzure"]);
                 this.azureBlobName = ConfigurationManager.AppSettings["azureBlobName"];
                 this.interval = int.Parse(ConfigurationManager.AppSettings["interval"]);
-                this.daviesRuleEnabled = bool.Parse(ConfigurationManager.AppSettings["daviesRuleEnabled"]);
 
                 if (string.IsNullOrWhiteSpace(this.emailUser) ||
                     string.IsNullOrWhiteSpace(this.emailPassword) ||
@@ -313,7 +311,7 @@ namespace FplBot
             bool daviesRuleInEffect = !(topNamesBeforeTransferCost.All(x => winnerNames.Contains(x)) && winnerNames.All(x => topNamesBeforeTransferCost.Contains(x)));
             long winnerHitCost = this.weeklyResults.First().HitsTakenCost;
 
-            if (this.daviesRuleEnabled && daviesRuleInEffect)
+            if (daviesRuleInEffect)
             {
                 result.Append($"{topNamesBeforeTransferCost} ${TextUtilities.WasWere(topNamesBeforeTransferCost.Count(), true)} in line to win the week until the ever so controversial Dan Davies rule was applied. But once the dust settled the ");
             }
