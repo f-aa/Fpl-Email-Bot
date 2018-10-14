@@ -483,7 +483,13 @@ namespace FplBot
 
             string previousFirstPlace = this.lastWeekStandings.First().Value.Entry.Name ?? string.Empty;
             string currentFirstPlace = this.currentWeekStandings.First().Value.Entry.Name;
+            string currentSecondPlace = this.currentWeekStandings.Take(2).Last().Value.Entry.Name;
+
             long firstPlacePoints = this.currentWeekStandings.First().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
+            long secondPlacePoint = this.currentWeekStandings.Take(2).Last().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
+
+            long lastWeekFirstPlacePoints = this.currentWeekStandings.First().Value.History.Find(x => x.Event == this.currentEventId - 1)?.TotalPoints.Value ?? 0;
+            long lastWeeksecondPlacePoint = this.currentWeekStandings.Take(2).Last().Value.History.Find(x => x.Event == this.currentEventId - 1)?.TotalPoints.Value ?? 0;
 
             string previousLastPlace = this.lastWeekStandings.Last().Value.Entry.Name ?? string.Empty;
             string currentLastPlace = this.currentWeekStandings.Last().Value.Entry.Name;
@@ -491,7 +497,23 @@ namespace FplBot
 
             if (previousFirstPlace == currentFirstPlace)
             {
-                result.Append($"{previousFirstPlace} stay at the top of the table with {firstPlacePoints} points.");
+                result.Append($"{previousFirstPlace} stay at the top of the table with {firstPlacePoints} points");
+
+                long thisWeekDifference = firstPlacePoints - secondPlacePoint;
+                long lastWeekDifference = lastWeekFirstPlacePoints - lastWeeksecondPlacePoint;
+
+                if (thisWeekDifference > lastWeekDifference)
+                {
+                    result.Append($" increasing their lead to {thisWeekDifference} points ahead of {currentSecondPlace} in second place.");
+                }
+                else if (thisWeekDifference < lastWeekDifference)
+                {
+                    result.Append($", although {currentSecondPlace} is creeping closer {thisWeekDifference} points behind.");
+                }
+                else
+                {
+                    result.Append($" maintaining a lead of {thisWeekDifference} points ahead of {currentSecondPlace}.");
+                }
             }
             else
             {
