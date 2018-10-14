@@ -82,7 +82,6 @@ Example:
 
 The winner would be Team B with 58 - 4 = 54 points, and Team B would be in second place with 60 - 8 = 52 pts.
 
-# To-do
+## To-do
 
-- Documentation on how to use
 - Add configuration to disable Dan Davies rule
