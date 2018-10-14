@@ -280,8 +280,6 @@ namespace FplBot
                     return result;
                 })
                 .OrderByDescending(x => x.Points);
-
-            var foobar = "";
         }
 
         /// <summary>
