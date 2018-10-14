@@ -43,6 +43,7 @@ namespace FplBot
         private readonly bool useAzure;
         private readonly string azureBlobName;
         private readonly int interval;
+        private readonly bool daviesRuleEnabled;
         private string[] recipients;
 
         IOrderedEnumerable<TeamWeeklyResult> weeklyResults;
@@ -82,6 +83,7 @@ namespace FplBot
                 this.useAzure = bool.Parse(ConfigurationManager.AppSettings["useAzure"]);
                 this.azureBlobName = ConfigurationManager.AppSettings["azureBlobName"];
                 this.interval = int.Parse(ConfigurationManager.AppSettings["interval"]);
+                this.daviesRuleEnabled = bool.Parse(ConfigurationManager.AppSettings["daviesRuleEnabled"]);
 
                 if (string.IsNullOrWhiteSpace(this.emailUser) ||
                     string.IsNullOrWhiteSpace(this.emailPassword) ||
@@ -271,17 +273,12 @@ namespace FplBot
         private string CalculateTop()
         {
             this.logger.Log("Calculating top positions...");
-
-            // Currently implements the Dan Davies rule
-            // To find the winner of the gameweek we take every score and subtract the transfer cost for that week
-            // This helps counteract managers taking multiple hits every week in an attempt to win the weekly prize
-            // Might put this in the app.config as a configurable setting at some point
-
+            
             StringBuilder result = new StringBuilder();
 
-            long topScore = this.weeklyResults.Max(t => t.Points);                  // this.rankedTeams.First().Value.History.Find(y => y.Event == this.currentEvent).Points;
-            long topGrossScore = this.weeklyResults.Max(t => t.ScoreBeforeHits);    // this.rankedTeams.First().Value.History.Find(y => y.Event == this.currentEvent).Points;
-            long top3Score = this.weeklyResults.Take(3).Last().Points;              // this.rankedTeams.Take(3).Last().Value.History.Find(y => y.Event == this.currentEvent).Points;
+            long topScore = this.weeklyResults.Max(t => t.Points);
+            long topGrossScore = this.weeklyResults.Max(t => t.ScoreBeforeHits);
+            long top3Score = this.weeklyResults.Take(3).Last().Points;
 
             IEnumerable<string> winnerNames = this.weeklyResults                    // This weeks winner(s)
                 .Where(x => x.Points == topScore)                                   // Find all teams with the top score
@@ -292,7 +289,7 @@ namespace FplBot
                 .Where(x => x.ScoreBeforeHits == topGrossScore)
                 .Select(x => x.Name);
 
-            IEnumerable<string> topNames = this.weeklyResults                      // Top 3ish teams for this week
+            IEnumerable<string> topNames = this.weeklyResults                       // Top 3ish teams for this week
                 .Where(x => x.Points >= top3Score)                                  // Find anyone that had top 3 score or better
                 .Where(x => x.Points < topScore)                                    // Exlude the first one
                 .Select(x => $"{x.Name} ({x.Points} pts)");                         // Prepare text
@@ -300,7 +297,7 @@ namespace FplBot
             bool daviesRuleInEffect = !(topNamesBeforeTransferCost.All(x => winnerNames.Contains(x)) && winnerNames.All(x => topNamesBeforeTransferCost.Contains(x)));
             long winnerHitCost = this.weeklyResults.First().HitsTakenCost;
 
-            if (daviesRuleInEffect)
+            if (this.daviesRuleEnabled && daviesRuleInEffect)
             {
                 result.Append($"{topNamesBeforeTransferCost} ${TextUtilities.WasWere(topNamesBeforeTransferCost.Count(), true)} in line to win the week until the ever so controversial Dan Davies rule was applied. But once the dust settled the ");
             }
