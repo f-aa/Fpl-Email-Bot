@@ -64,7 +64,11 @@ Rank Chg. LW   Team                   Pts.
 
 ## Setup
 
-(TODO)
+Download the latest release (https://github.com/f-aa/Fpl-Email-Bot/releases) and unzip it into a folder on your computer. Open the FplBot.exe.config with a text editor (like Notepad) and fill in all the required values. Follow the instructions in the configuration file for help. If you are planning on running the file locally from your computer you can keep the useAzure and azureBlobStorage settings as they are. Make sure you save your file before attempting to run the bot.
+
+After finishing configuring the bot you can double-click the FplBot.exe file (or run from command-line) and it will process all gameweeks up until the current one. Which gameweek to process next is controlled by the gameweek.txt file so make sure you don't delete it. Once all gameweeks have been processed you can close the window. Run it again every time a gameweek finished (or keep it running for the next 6 months, who am I to tell you what to do).
+
+If you want to run it as an automated webjob in Azure make sure you enter your Azure connection strings as well as set useAzure to true. Also include a name you want to use for the blog storage. If you pick a name that doesn't exist one will be created for you. Next zip all your files up and upload as an Azure webjob. Make sure you set it to continuous and single-instance. If you don't understand anything in this paragraph you should only run it from your computer.
 
 ## How are weekly winners determined
 
