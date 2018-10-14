@@ -26,5 +26,25 @@
         /// Score after points hits
         /// </summary>
         internal long Points => this.ScoreBeforeHits - this.HitsTakenCost;
+
+        /// <summary>
+        /// Total amount of points
+        /// </summary>
+        internal long TotalPoints { get; set; }
+
+        /// <summary>
+        /// The position in the mini-league this team reached this week
+        /// </summary>
+        internal int CurrentWeekPosition { get; set; }
+
+        /// <summary>
+        /// The position in the mini-league this team was last week
+        /// </summary>
+        internal int PreviousWeekPosition { get; set; }
+
+        /// <summary>
+        /// The difference between last week and this week
+        /// </summary>
+        internal long PositionChangedSinceLastWeek => this.PreviousWeekPosition - this.CurrentWeekPosition;
     }
 }

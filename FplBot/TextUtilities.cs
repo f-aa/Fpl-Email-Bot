@@ -108,14 +108,14 @@ namespace FplBot
 
             List<string> adjectives = new List<string>();
 
-            adjectives.Add("paltry");
-            adjectives.Add("miserable");
-            adjectives.Add("insignificant");
-            adjectives.Add("meager");
-            adjectives.Add("pitiful");
-            adjectives.Add("shabby");
-            adjectives.Add("inadequate");
-
+            adjectives.Add("a paltry");
+            adjectives.Add("a miserable");
+            adjectives.Add("an insignificant");
+            adjectives.Add("a meager");
+            adjectives.Add("a pitiful");
+            adjectives.Add("a shabby");
+            adjectives.Add("an inadequate");
+            
             return adjectives[rng.Next(0, adjectives.Count)];
         }
 
@@ -132,15 +132,35 @@ namespace FplBot
 
             List<string> adjectives = new List<string>();
 
-            adjectives.Add("astonishing");
-            adjectives.Add("amazing");
-            adjectives.Add("extraordinary");
-            adjectives.Add("spectacular");
-            adjectives.Add("stunning");
-            adjectives.Add("astounding");            
-            adjectives.Add("incredible");
+            adjectives.Add("an astonishing");
+            adjectives.Add("an amazing");
+            adjectives.Add("an extraordinary");
+            adjectives.Add("a spectacular");
+            adjectives.Add("a stunning");
+            adjectives.Add("an astounding");            
+            adjectives.Add("an incredible");
 
             return adjectives[rng.Next(0, adjectives.Count)];
+        }
+
+        internal static string GetPoorNoun()
+        {
+            if (rng == null)
+            {
+                rng = new Random();
+            }
+
+            List<string> nouns = new List<string>();
+
+            nouns.Add("bottom feeder");
+            nouns.Add("deadbeat");
+            nouns.Add("loafer");
+            nouns.Add("slouch");
+            nouns.Add("sucker");
+            nouns.Add("chump");
+            nouns.Add("sap");
+
+            return nouns[rng.Next(0, nouns.Count)];
         }
     }
 }
