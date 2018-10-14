@@ -155,6 +155,7 @@ namespace FplBot
                 string averageResults = this.CalculateAverages();
                 string captains = await this.CalculateCaptains();
                 string movement = this.currentEventId > 1 ? this.CalculateTopAndBottomStandings() : string.Empty;
+                string moversShakers = this.currentEventId > 1 ? this.CalculateMoversAndShakers() : string.Empty;
                 string pointsBenched = this.CalculatePointsOnBench();
                 string hitsTaken = this.PrintHitsTaken();
                 string chipsUsed = this.CalculateChipsUsed();
@@ -166,6 +167,7 @@ namespace FplBot
                 if (!string.IsNullOrEmpty(movement))
                 {
                     this.Output.AppendLine(movement);
+                    this.Output.AppendLine(moversShakers);
                 }
 
                 if (this.attachTable)
@@ -244,26 +246,42 @@ namespace FplBot
         /// </summary>
         private void CalculateWeeklyRank()
         {
+            this.lastWeekStandings = this.fplTeam.OrderByDescending(x => x.Value.History.Find(y => y.Event == this.currentEventId - 1).TotalPoints);
+            this.currentWeekStandings = this.fplTeam.OrderByDescending(x => x.Value.History.Find(y => y.Event == this.currentEventId).TotalPoints);
+
             this.weeklyResults = this.fplTeam
                 .Select(x =>
                 {
                     Api.Team.History history = x.Value.History.Find(y => y.Event == this.currentEventId);
                     string chip = x.Value.Chips.Find(c => c.Event == this.currentEventId)?.Name ?? string.Empty;
 
+
+                    int calculatedLastRank = this.currentEventId == 1 ? -1 : this.lastWeekStandings
+                        .Select((t, i) => new { Index = i + 1, TeamId = t.Key })
+                        .First(t => t.TeamId == x.Key)
+                        .Index;
+
+                    int calculatedCurrentRank = this.currentWeekStandings
+                        .Select((t, i) => new { Index = i + 1, TeamId = t.Key })
+                        .First(t => t.TeamId == x.Key)
+                        .Index;
+
                     var result = new TeamWeeklyResult()
                     {
                         Name = x.Value.Entry.Name,
                         HitsTakenCost = history.EventTransfersCost.Value,
                         ScoreBeforeHits = history.Points.Value,
-                        ChipUsed = chip
+                        TotalPoints = history.TotalPoints.Value,
+                        ChipUsed = chip,
+                        PreviousWeekPosition = calculatedLastRank,
+                        CurrentWeekPosition = calculatedCurrentRank
                     };
 
                     return result;
                 })
                 .OrderByDescending(x => x.Points);
 
-            this.lastWeekStandings = this.fplTeam.OrderByDescending(x => x.Value.History.Find(y => y.Event == this.currentEventId - 1).TotalPoints);
-            this.currentWeekStandings = this.fplTeam.OrderByDescending(x => x.Value.History.Find(y => y.Event == this.currentEventId).TotalPoints);
+            var foobar = "";
         }
 
         /// <summary>
@@ -536,6 +554,52 @@ namespace FplBot
             return result.ToString();
         }
 
+        private string CalculateMoversAndShakers()
+        {
+            StringBuilder result = new StringBuilder();
+
+            long highestClimbed = this.weeklyResults.Max(team => team.PositionChangedSinceLastWeek);
+            long highestDrop = this.weeklyResults.Min(team => team.PositionChangedSinceLastWeek);
+
+            var bestClimbers = this.weeklyResults
+                .Where(team => team.PositionChangedSinceLastWeek == highestClimbed);
+
+            var worstDroppers = this.weeklyResults
+                .Where(team => team.PositionChangedSinceLastWeek == highestDrop);
+
+
+            if (highestClimbed < 2 && highestDrop < 2)
+            {
+                result.Append($"There were no significants movement on the overall standings this week.");
+            }
+            else
+            {
+                if (highestClimbed > 1)
+                {
+                    result.Append($"As for shakers and movers {TextUtilities.NaturalParse(bestClimbers.Select(i => $"{i.Name}").ToList())} climbed {highestClimbed} spots this week.");
+                }
+                else
+                {
+                    result.Append($"Nobody made any significant climbs upwards on the table this week.");
+                }
+
+                result.Append(" ");
+
+                if (highestDrop < -1)
+                {
+                    result.Append($"In the not so great department we have {TextUtilities.NaturalParse(worstDroppers.Select(i => $"{i.Name}").ToList())} dropping {Math.Abs(highestDrop)} spots.");
+                }
+                else
+                {
+                    result.Append($"On the other hand nobody made any significant drops on the table.");
+                }
+            }
+
+            result.AppendLine();
+
+            return result.ToString();
+        }
+
         /// <summary>
         /// Calculates the highest left on bench score
         /// </summary>
@@ -662,35 +726,28 @@ namespace FplBot
 
             StringBuilder standings = new StringBuilder();
 
-            // We're trying to do some padding here, but it still looks wonky in a lot of email clients
-            // Might move this to a txt attachment instead
             int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Entry.Name.Length);
-            int index = 1;
 
             standings.AppendLine($"Standings for {this.fplSeason.League.Name} after GW#{this.currentEventId}:");
             standings.AppendLine("".PadLeft(longestTeamName + 22, '-'));
             standings.AppendLine($"Rank Chg. LW   Team{string.Empty.PadLeft(longestTeamName - 4)}   Pts.");
             standings.AppendLine("".PadLeft(longestTeamName + 22, '-')).AppendLine();
 
-            foreach (var team in this.currentWeekStandings)
+            foreach (var team in this.weeklyResults.OrderBy(x => x.CurrentWeekPosition))
             {
                 // if this is the first gameweek, there was no rank last week so we'll return -1 and print out -- for movement
-                int calculatedLastRank = this.currentEventId == 1 ? -1 : this.lastWeekStandings
-                    .Select((t, i) => new { Index = i + 1, TeamId = t.Key })
-                    .First(t => t.TeamId == team.Key)
-                    .Index;
-                string currentRank = index.ToString().PadLeft(2);
-                string previousRank = this.currentEventId == 1 ? "--" : calculatedLastRank.ToString().PadLeft(2);
-                string teamName = team.Value.Entry.Name.PadRight(longestTeamName);
-                string points = team.Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.ToString().PadLeft(4);
+                string currentRank = team.CurrentWeekPosition.ToString().PadLeft(2);
+                string previousRank = this.currentEventId == 1 ? "--" : team.PreviousWeekPosition.ToString().PadLeft(2);
+                string teamName = team.Name.PadRight(longestTeamName);
+                string points = team.TotalPoints.ToString().PadLeft(4);
 
                 string movement;
 
-                if (index == calculatedLastRank || calculatedLastRank < 0)
+                if (currentRank == previousRank || team.PreviousWeekPosition < 0)
                 {
                     movement = "--";
                 }
-                else if (index > calculatedLastRank)
+                else if (team.CurrentWeekPosition > team.PreviousWeekPosition)
                 {
                     movement = "dn";
                 }
@@ -700,7 +757,6 @@ namespace FplBot
                 }
 
                 standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {teamName}   {points}");
-                index++;
             }
 
             return standings;
