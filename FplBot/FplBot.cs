@@ -313,7 +313,7 @@ namespace FplBot
 
             if (daviesRuleInEffect)
             {
-                result.Append($"{topNamesBeforeTransferCost} ${TextUtilities.WasWere(topNamesBeforeTransferCost.Count(), true)} in line to win the week until the ever so controversial Dan Davies rule was applied. But once the dust settled the ");
+                result.Append($"{TextUtilities.NaturalParse(topNamesBeforeTransferCost)} {TextUtilities.WasWere(topNamesBeforeTransferCost.Count(), true)} in line to win the week until the ever so controversial Dan Davies rule was applied. But once the dust settled the ");
             }
             else
             {
