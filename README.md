@@ -7,55 +7,53 @@ Example email body:
 ```
 Beep boop! I am a robot. This is your weekly FPL update.
 
-The winner for gameweek #4 was Davies & Co. with 61 points! Rounding up the top 3 for the week was Chupacabra (56 pts) and Panama (55 pts).
+The winner for gameweek #7 was Gnarly Norwegians with 82 points! Rounding up the top 3 for the week was Kick it in the net!! (72 pts) and The B Team (63 pts).
 
-The worst ranking teams this week were Big Red Dog (32 pts), HasselHoff (31 pts), FC Grunge (30 pts), and Goes to 11 (28 pts). You should probably be embarrassed. 
+The worst ranking teams this week were The Goon Squad (44 pts), Kotterpool (43 pts), Relegation FC (39 pts), and Big Red Dog (32 pts). You should probably be embarrassed. 
 
-When it came to captaincy choices Garry's Gooners and Davies & Co. did the best this week with 26 points from Harry Kane. On the other end of the spectrum were FC Grunge who had picked Javier Hern·ndez Balc·zar for a total of 4 points. You receive the armband of shame for this week. 
+When it came to captaincy choice Kick it in the net!! did the best this week with 26 point from Harry Kane. On the other end of the spectrum were The Goon Squad who had picked Sadio Man√© for a total of 2 points. You receive the armband of shame for this week. 
 
-Kotterpool with 230 total points is the new league leader, supplanting last weeks leader Gnarly Norwegians. At the other end Big Red Dog is the new bottom feeder with a pitiful 155 points total.
+Gnarly Norwegians with 482 total points is the new league leader, supplanting last weeks leader Goes to 11. At the other end Big Red Dog is the new sap in last place with a miserable 295 points total.
+
+As for shakers and movers Man City Minions climbed 4 spots this week. In the not so great department we have Relegation FC dropping 3 spots.
 
 Notable news:
 
-- 12 teams managed to reach or beat the overall average of 44 points for the week. 
-- ManCityMonsters left an astonishing 23 points on the bench which was the highest in the league.
-- No hits were taken this week.
-- Davies & Co. (wildcard) and Goes to 11 (wildcard) decided to spend one of their chips this week.
+- 10 teams managed to reach or beat the overall average of 51 points for the week. 
+- FC Grunge left an extraordinary 23 points on the bench which was the highest in the league.
+- Gear (-4 pts) and Slaughterhouse 11 (-4 pts) both took transfer hits.
+- Gnarly Norwegians (wildcard) was the only team to use a chip this week.
 
 Your friendly FPL bot will return next gameweek with another update.
+
 ```
 
 Example of attached standings file:
 
 ```
-Standings for Oskana FC after GW#4:
+Standings for Oskana FC after GW#7:
+------------------------------------------
+Rank Chg. LW   Team                   Pts.
+------------------------------------------
 
-----------------------------------------
-
-Rank Chg. LW   Team                 Pts.
-----------------------------------------
-
- 1   up    2   Kotterpool            230
- 2   dn    1   Gnarly Norwegians     227
- 3   --    3   Hillhurst Hotspur     219
- 4   up    6   Kick it in the net    213
- 5   dn    4   Gear                  209
- 6   up    9   Chupacabra            205
- 7   dn    5   Beeston               204
- 8   dn    7   Windsor Wildlings     201
- 9   up   11   U30                   190
-10   dn    8   HasselHoff            186
-11   up   13   Slaughterhouse 11     184
-12   --   12   Relegation FC         178
-13   dn   10   Goes to 11            177
-14   up   19   Davies & Co.          168
-15   --   15   ManCityMonsters       164
-16   up   17   Garry's Gooners       161
-17   dn   14   FC Grunge             159
-18   up   20   Panama                156
-19   dn   18   The B team            155
-20   dn   16   Big Red Dog           155
-
+ 1   up    3   Gnarly Norwegians       482
+ 2   dn    1   Goes to 11              462
+ 3   dn    2   Slaughterhouse 11       455
+ 4   up    5   Gear                    445
+ 5   dn    4   Chupacabra              438
+ 6   --    6   Beeston FC              412
+ 7   --    7   Hillhurst Hotspur       394
+ 8   --    8   JoSalah                 387
+ 9   up   11   Kick it in the net!!    379
+10   --   10   Daniel's Spaniels       362
+11   up   15   Man City Minions        355
+12   dn    9   Relegation FC           353
+13   dn   12   Kotterpool              348
+14   --   14   FC Grunge               347
+15   dn   13   The Goon Squad          344
+16   --   16   windsor wildlings       330
+17   up   18   The B Team              309
+18   dn   17   Big Red Dog             295
 ```
 
 ## Requirements
@@ -66,7 +64,11 @@ Rank Chg. LW   Team                 Pts.
 
 ## Setup
 
-(TODO)
+Download the latest release (https://github.com/f-aa/Fpl-Email-Bot/releases) and unzip it into a folder on your computer. Open the FplBot.exe.config with a text editor (like Notepad) and fill in all the required values. Follow the instructions in the configuration file for help. If you are planning on running the file locally from your computer you can keep the useAzure and azureBlobStorage settings as they are. Make sure you save your file before attempting to run the bot.
+
+After finishing configuring the bot you can double-click the FplBot.exe file (or run from command-line) and it will process all gameweeks up until the current one. Which gameweek to process next is controlled by the gameweek.txt file so make sure you don't delete it. Once all gameweeks have been processed you can close the window. Run it again every time a gameweek finished (or keep it running for the next 6 months, who am I to tell you what to do).
+
+If you want to run it as an automated webjob in Azure make sure you enter your Azure connection strings as well as set useAzure to true. Also include a name you want to use for the blog storage. If you pick a name that doesn't exist one will be created for you. Next zip all your files up and upload as an Azure webjob. Make sure you set it to continuous and single-instance. If you don't understand anything in this paragraph you should only run it from your computer.
 
 ## How are weekly winners determined
 
@@ -80,7 +82,6 @@ Example:
 
 The winner would be Team B with 58 - 4 = 54 points, and Team B would be in second place with 60 - 8 = 52 pts.
 
-# To-do
+## To-do
 
-- Documentation on how to use
 - Add configuration to disable Dan Davies rule
