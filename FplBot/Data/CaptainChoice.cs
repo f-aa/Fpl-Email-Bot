@@ -1,4 +1,4 @@
-﻿namespace FplBot
+﻿namespace FplBot.Data
 {
     internal struct CaptainChoice
     {

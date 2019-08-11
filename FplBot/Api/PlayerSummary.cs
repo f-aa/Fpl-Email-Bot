@@ -4,10 +4,10 @@
     using System;
     using System.Collections.Generic;
 
-    public partial class FplPlayerSummary
+    public partial class ApiSoccerPlayerSummary
     {
         [JsonProperty("history_past", NullValueHandling = NullValueHandling.Ignore)]
-        public List<HistoryPast> HistoryPast { get; set; }
+        public List<ApiSoccerPlayerHistoryPast> HistoryPast { get; set; }
 
         [JsonProperty("fixtures_summary", NullValueHandling = NullValueHandling.Ignore)]
         public List<object> FixturesSummary { get; set; }
@@ -16,13 +16,13 @@
         public List<ExplainElement> Explain { get; set; }
 
         [JsonProperty("history_summary", NullValueHandling = NullValueHandling.Ignore)]
-        public List<History> HistorySummary { get; set; }
+        public List<ApiFplSoccerPlayerHistory> HistorySummary { get; set; }
 
         [JsonProperty("fixtures", NullValueHandling = NullValueHandling.Ignore)]
         public List<object> Fixtures { get; set; }
 
         [JsonProperty("history", NullValueHandling = NullValueHandling.Ignore)]
-        public List<History> History { get; set; }
+        public List<ApiFplSoccerPlayerHistory> History { get; set; }
     }
 
     public partial class ExplainElement
@@ -133,7 +133,7 @@
         public long? Element { get; set; }
     }
 
-    public partial class History
+    public partial class ApiFplSoccerPlayerHistory
     {
         [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
         public long? Id { get; set; }
@@ -298,7 +298,7 @@
         public long? OpponentTeam { get; set; }
     }
 
-    public partial class HistoryPast
+    public partial class ApiSoccerPlayerHistoryPast
     {
         [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
         public long? Id { get; set; }

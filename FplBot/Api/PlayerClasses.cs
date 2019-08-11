@@ -3,7 +3,7 @@
     using Newtonsoft.Json;
     using System;
 
-    public partial class FplPlayer
+    public partial class ApiSoccerPlayer
     {
         [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
         public long? Id { get; set; }

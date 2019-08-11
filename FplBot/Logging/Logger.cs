@@ -12,9 +12,17 @@ namespace FplBot.Logging
         /// Thin wrapper around Console.WriteLine()
         /// </summary>
         /// <param name="message">The message we want to log</param>
-        public void Log(string message)
+        public void Log(string message, bool breakLine = true)
         {
-            Console.WriteLine(message);
+            if (breakLine)
+            {
+                Console.WriteLine(message);
+            }
+            else
+            {
+                Console.Write(message);
+            }
+            
         }
     }
 }
