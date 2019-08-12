@@ -10,6 +10,8 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +23,10 @@ namespace FplBot
     /// </summary>
     internal class FplBot
     {
+        private const string USERNAME = ""; // TODO: temp, move to app.config
+        private const string PASSWORD = ""; // TODO: temp, move to app.config
+
+        private readonly string FplAuthUri = "https://users.premierleague.com";
         private readonly string FplRootUri = "https://fantasy.premierleague.com/api/bootstrap-static";
         private readonly string LeagueStandingsUri = "https://fantasy.premierleague.com/api/leagues-classic/{0}/standings/?page_new_entries=1&page_standings=1&phase=1";
         private readonly string TeamUri = "https://fantasy.premierleague.com/api/entry/{0}/history";
@@ -58,6 +64,8 @@ namespace FplBot
 
         private bool isInitialized = false;
 
+        private System.Net.Cookie authCookie;
+
         public StringBuilder Output { get; set; }
 
         /// <summary>
@@ -70,7 +78,7 @@ namespace FplBot
 
             try
             {
-                this.logger.Log("Loading configuration file...");
+                this.logger.Log("Loading configuration file");
 
                 this.attachTable = bool.Parse(ConfigurationManager.AppSettings["attachTable"]);
                 this.leagueId = long.Parse(ConfigurationManager.AppSettings["leagueId"]);
@@ -117,10 +125,25 @@ namespace FplBot
         /// <returns></returns>
         internal async Task Initialize()
         {
-            this.logger.Log("Initializing FPL Bot...");
+            this.logger.Log("Initializing FPL Bot");
 
             this.persistence.Initialize();
             this.currentEventId = this.persistence.GetGameweek();
+
+            var httpClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false }) { BaseAddress = new Uri(this.FplAuthUri) };
+            using (var flurlClient = new FlurlClient(httpClient).EnableCookies())
+            {
+                this.logger.Log("Aquiring authentication cookie...");
+                
+                var response = await flurlClient
+                    .Request("/accounts/login/")
+                    .AllowHttpStatus(HttpStatusCode.Redirect)
+                    .WithHeader("Content-Type", "application/x-www-form-urlencoded")
+                    .PostStringAsync($"login={USERNAME}&password={PASSWORD}&app=plfpl-web&redirect_uri=https://fantasy.premierleague.com/")
+                    .ConfigureAwait(false);
+
+                this.authCookie = flurlClient.Cookies.First().Value;
+            }
 
             this.logger.Log("Fetching bootstrap-static root...");
             this.fplRoot = await this.FplRootUri.GetJsonAsync<Api.Root.FplRoot>().ConfigureAwait(false);
@@ -218,13 +241,27 @@ namespace FplBot
         /// <returns></returns>
         private async Task LoadApiDataAsync()
         {
-            this.logger.Log("Fetching league information...");
-;
-            this.fplLeague = await string.Format(this.LeagueStandingsUri, this.leagueId).GetJsonAsync<Api.League.ApiLeague>();
+            this.logger.Log("Fetching league...");
+
+            try
+            {
+                this.fplLeague = await string.Format(this.LeagueStandingsUri, this.leagueId)
+                    .WithCookie(this.authCookie)
+                    .GetJsonAsync<Api.League.ApiLeague>();
+
+                this.logger.Log($"Fetched {this.fplLeague.League.Name}");
+            }
+            catch (Exception ex)
+            {
+                this.logger.Log($"Could not fetch data for league with ID={this.leagueId}.");
+                this.logger.Log(ex.Message);
+                this.logger.Log("Terminating application.");
+                Environment.Exit(-1);
+            }
 
             foreach (Api.League.ApiLeagueFplTeams standing in this.fplLeague.Standings.Results.AsParallel())
             {
-                this.logger.Log($"Fetching {standing.EntryName}...", false);
+                this.logger.Log($"Fetching {standing.EntryName}...");
 
                 var teamTask = string.Format(this.TeamUri, standing.Entry).GetJsonAsync<Api.Team.ApiFplTeam>();
                 var picksTask = string.Format(this.PicksUri, standing.Entry, this.currentEventId).GetJsonAsync<Api.Picks.ApiFplTeamPicks>();
@@ -241,8 +278,6 @@ namespace FplBot
                 });
 
                 this.fplPicks.Add(standing.Entry, picksTask.Result);
-
-                this.logger.Log("Done!");
             }
         }
 
