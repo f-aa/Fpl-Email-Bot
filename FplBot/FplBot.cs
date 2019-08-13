@@ -1,5 +1,6 @@
 ﻿using Flurl.Http;
-using FplBot.Api.Summary;
+using FplBot.Api;
+using FplBot.Data;
 using FplBot.Logging;
 using MailKit.Net.Smtp;
 using MimeKit;
@@ -21,16 +22,16 @@ namespace FplBot
     /// </summary>
     internal class FplBot
     {
-        private readonly string FplRootUri = "https://fantasy.premierleague.com/drf/bootstrap-static";
-        private readonly string LeagueStandingsUri = "https://fantasy.premierleague.com/drf/leagues-classic-standings/{0}";
-        private readonly string TeamUri = "https://fantasy.premierleague.com/drf/entry/{0}/history";
-        private readonly string PicksUri = "https://fantasy.premierleague.com/drf/entry/{0}/event/{1}/picks";
-        private readonly string PlayersUri = "https://fantasy.premierleague.com/drf/elements";
-        private readonly string PlayerSummaryUrI = "https://fantasy.premierleague.com/drf/element-summary/{0}";
-        private readonly Dictionary<long, Api.Team.FplTeam> fplTeam;
-        private readonly Dictionary<long, Api.Picks.FplPicks> fplPicks;
-        private readonly Dictionary<long, FplPlayerSummary> fplPlayerSummaries;
-        private readonly Dictionary<long, Api.Player.FplPlayer> fplCaptains;
+        private readonly string FplRootUri = "https://fantasy.premierleague.com/api/bootstrap-static";
+        private readonly string LeagueStandingsUri = "https://fantasy.premierleague.com/api/leagues-classic/{0}/standings/?page_new_entries=1&page_standings=1&phase=1";
+        private readonly string TeamUri = "https://fantasy.premierleague.com/api/entry/{0}/history";
+        private readonly string PicksUri = "https://fantasy.premierleague.com/api/entry/{0}/event/{1}/picks";
+        private readonly string PlayerSummaryUrI = "https://fantasy.premierleague.com/api/element-summary/{0}";
+        private readonly Dictionary<long, FplTeamEntry> fplTeams;
+        private readonly Dictionary<long, Api.Picks.ApiFplTeamPicks> fplPicks;
+        private readonly Dictionary<long, Api.Summary.ApiSoccerPlayerSummary> fplPlayerSummaries;
+        private readonly Dictionary<long, Api.Player.ApiSoccerPlayer> fplCaptains;
+        private readonly Authentication authentication;
         private readonly ILogger logger;
 
         private readonly long leagueId;
@@ -46,16 +47,16 @@ namespace FplBot
         private string[] recipients;
 
         IOrderedEnumerable<TeamWeeklyResult> weeklyResults;
-        IOrderedEnumerable<KeyValuePair<long, Api.Team.FplTeam>> lastWeekStandings;
-        IOrderedEnumerable<KeyValuePair<long, Api.Team.FplTeam>> currentWeekStandings;
+        IOrderedEnumerable<KeyValuePair<long, FplTeamEntry>> lastWeekStandings;
+        IOrderedEnumerable<KeyValuePair<long, FplTeamEntry>> currentWeekStandings;
         private Api.Root.FplRoot fplRoot;
-        private Api.Season.FplSeason fplSeason;
+        private Dictionary<long, Api.Player.ApiSoccerPlayer> soccerPlayers;
+        private Dictionary<long, string> fplTeamNames;
+        private Api.League.ApiLeague fplLeague;
         private Api.Root.Event currentEvent;
-        private Dictionary<long, Api.Player.FplPlayer> fplPlayers;
         private Persistence persistence;
 
         private int currentEventId;
-
         private bool isInitialized = false;
 
         public StringBuilder Output { get; set; }
@@ -68,9 +69,11 @@ namespace FplBot
         {
             this.logger = logger;
 
+            string fplUsername = string.Empty;
+            string fplPassword = string.Empty;
             try
             {
-                this.logger.Log("Loading configuration file...");
+                this.logger.Log("Loading configuration file");
 
                 this.attachTable = bool.Parse(ConfigurationManager.AppSettings["attachTable"]);
                 this.leagueId = long.Parse(ConfigurationManager.AppSettings["leagueId"]);
@@ -83,10 +86,15 @@ namespace FplBot
                 this.azureBlobName = ConfigurationManager.AppSettings["azureBlobName"];
                 this.interval = int.Parse(ConfigurationManager.AppSettings["interval"]);
 
+                fplUsername = ConfigurationManager.AppSettings["fplUsername"];
+                fplPassword = ConfigurationManager.AppSettings["fplPassword"];
+
                 if (string.IsNullOrWhiteSpace(this.emailUser) ||
                     string.IsNullOrWhiteSpace(this.emailPassword) ||
                     string.IsNullOrWhiteSpace(this.emailFrom) ||
                     string.IsNullOrWhiteSpace(this.smtpServer) ||
+                    string.IsNullOrWhiteSpace(fplUsername) ||
+                    string.IsNullOrWhiteSpace(fplPassword) ||
                     (useAzure && string.IsNullOrWhiteSpace(this.azureBlobName)))
                 {
                     throw new ArgumentException("Missing or incorrect configuration. Please make sure your FplBot.exe.config file is properly configured.");
@@ -101,12 +109,13 @@ namespace FplBot
                 Environment.Exit(-1);
             }
 
-            this.fplPlayers = new Dictionary<long, Api.Player.FplPlayer>();
-            this.fplTeam = new Dictionary<long, Api.Team.FplTeam>();
-            this.fplPicks = new Dictionary<long, Api.Picks.FplPicks>();
-            this.fplPlayerSummaries = new Dictionary<long, FplPlayerSummary>();
-            this.fplCaptains = new Dictionary<long, Api.Player.FplPlayer>();
+            this.fplTeams = new Dictionary<long, FplTeamEntry>();
+            this.fplPicks = new Dictionary<long, Api.Picks.ApiFplTeamPicks>();
+            this.fplPlayerSummaries = new Dictionary<long, Api.Summary.ApiSoccerPlayerSummary>();
+            this.fplCaptains = new Dictionary<long, Api.Player.ApiSoccerPlayer>();
             this.persistence = new Persistence(this.logger, this.useAzure, this.azureBlobName);
+            this.fplTeamNames = new Dictionary<long, string>();
+            this.authentication = new Authentication(fplUsername, fplPassword, this.logger);
 
             this.Output = new StringBuilder();
         }
@@ -117,16 +126,18 @@ namespace FplBot
         /// <returns></returns>
         internal async Task Initialize()
         {
-            this.logger.Log("Initializing FPL Bot...");
+            this.logger.Log("Initializing FPL Bot");
 
             this.persistence.Initialize();
             this.currentEventId = this.persistence.GetGameweek();
 
-            this.logger.Log("Fetching current Event from FPL API...");
+            this.logger.Log("Fetching bootstrap-static root...");
             this.fplRoot = await this.FplRootUri.GetJsonAsync<Api.Root.FplRoot>().ConfigureAwait(false);
+            this.soccerPlayers = this.fplRoot.Elements.ToDictionary(player => player.Id.Value);
             this.currentEvent = this.fplRoot.Events.Find(x => x.Id == this.currentEventId);
 
             this.isInitialized = true;
+            this.logger.Log("Initializing completed!");
         }
 
         /// <summary>
@@ -145,6 +156,12 @@ namespace FplBot
                 this.Output.AppendLine($"Beep boop! I am a robot. This is your weekly FPL update.").AppendLine();
 
                 await this.LoadApiDataAsync();
+
+                if (this.fplTeams.Count() < 1)
+                {
+                    this.logger.Log($"Could not find any teams in league {this.fplLeague.League.Name}. Did you enter the correct ID? Terminating application.");
+                    Environment.Exit(-1);
+                }
 
                 this.CalculateWeeklyRank();
 
@@ -195,6 +212,10 @@ namespace FplBot
                 stopwatch.Stop();
                 this.logger.Log($"Beep boop. This is diagnostics. Completed FPL processing in {((double)stopwatch.ElapsedMilliseconds / 1000).ToString("N1")} seconds.");
             }
+            else if (!(this.currentEvent.Finished.Value && this.currentEvent.DataChecked.Value))
+            {
+                this.logger.Log("Gameweek has not completed yet.");
+            }
         }
 
         /// <summary>
@@ -212,30 +233,44 @@ namespace FplBot
         /// <returns></returns>
         private async Task LoadApiDataAsync()
         {
-            this.logger.Log("Loading league and player information from FPL API:");
+            this.logger.Log("Fetching league...");
 
-            var playerTask = this.PlayersUri.GetJsonAsync<List<Api.Player.FplPlayer>>();
-            var leagueTask = string.Format(this.LeagueStandingsUri, this.leagueId).GetJsonAsync<Api.Season.FplSeason>();
+            try
+            {
+                var cookie = await this.authentication.GetCookie();
+                this.fplLeague = await string.Format(this.LeagueStandingsUri, this.leagueId)
+                    .WithCookie(cookie)
+                    .GetJsonAsync<Api.League.ApiLeague>();
 
-            await Task.WhenAll(playerTask, leagueTask).ConfigureAwait(false);
+                this.logger.Log($"Fetched {this.fplLeague.League.Name}");
+            }
+            catch (Exception ex)
+            {
+                this.logger.Log($"Could not fetch data for league with ID={this.leagueId}.");
+                this.logger.Log(ex.Message);
+                this.logger.Log("Terminating application.");
+                Environment.Exit(-1);
+            }
 
-            this.fplPlayers = playerTask.Result.ToDictionary(y => y.Id.Value);
-            this.fplSeason = leagueTask.Result;
-
-            foreach (Api.Season.Result standing in this.fplSeason.Standings.Results.AsParallel())
+            foreach (Api.League.ApiLeagueFplTeams standing in this.fplLeague.Standings.Results.AsParallel())
             {
                 this.logger.Log($"Fetching {standing.EntryName}...");
 
-                var teamTask = string.Format(this.TeamUri, standing.Entry).GetJsonAsync<Api.Team.FplTeam>();
-                var picksTask = string.Format(this.PicksUri, standing.Entry, this.currentEventId).GetJsonAsync<Api.Picks.FplPicks>();
+                var teamTask = string.Format(this.TeamUri, standing.Entry).GetJsonAsync<Api.Team.ApiFplTeam>();
+                var picksTask = string.Format(this.PicksUri, standing.Entry, this.currentEventId).GetJsonAsync<Api.Picks.ApiFplTeamPicks>();
 
                 await Task.WhenAll(teamTask, picksTask).ConfigureAwait(false);
 
-                Api.Team.FplTeam team = teamTask.Result;
-                Api.Picks.FplPicks picks = picksTask.Result;
+                this.fplTeams.Add(standing.Entry, new FplTeamEntry()
+                {
+                    Chips = teamTask.Result.Chips,
+                    Current = teamTask.Result.Current,
+                    Id = standing.Entry,
+                    Name = standing.EntryName,
+                    Past = teamTask.Result.Past
+                });
 
-                this.fplTeam.Add(standing.Entry, team);
-                this.fplPicks.Add(standing.Entry, picks);
+                this.fplPicks.Add(standing.Entry, picksTask.Result);
             }
         }
 
@@ -244,29 +279,34 @@ namespace FplBot
         /// </summary>
         private void CalculateWeeklyRank()
         {
-            this.lastWeekStandings = this.fplTeam.OrderByDescending(x => x.Value.History.Find(y => y.Event == this.currentEventId - 1).TotalPoints);
-            this.currentWeekStandings = this.fplTeam.OrderByDescending(x => x.Value.History.Find(y => y.Event == this.currentEventId).TotalPoints);
+            this.lastWeekStandings = this.fplTeams
+                .OrderByDescending(t => t.Value.Current.Find(e => e.Event == this.currentEventId - 1).TotalPoints)
+                .ThenByDescending(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
 
-            this.weeklyResults = this.fplTeam
-                .Select(x =>
+            this.currentWeekStandings = this.fplTeams
+                .OrderByDescending(t => t.Value.Current.Find(e => e.Event == this.currentEventId).TotalPoints)
+                .ThenByDescending(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
+
+            this.weeklyResults = this.fplTeams
+                .Select(team =>
                 {
-                    Api.Team.History history = x.Value.History.Find(y => y.Event == this.currentEventId);
-                    string chip = x.Value.Chips.Find(c => c.Event == this.currentEventId)?.Name ?? string.Empty;
+                    Api.Team.ApiFplTeamEvents history = team.Value.Current.Find(e => e.Event == this.currentEventId);
+                    string chip = team.Value.Chips.Find(c => c.Event == this.currentEventId)?.Name ?? string.Empty;
 
 
                     int calculatedLastRank = this.currentEventId == 1 ? -1 : this.lastWeekStandings
                         .Select((t, i) => new { Index = i + 1, TeamId = t.Key })
-                        .First(t => t.TeamId == x.Key)
+                        .First(t => t.TeamId == team.Key)
                         .Index;
 
                     int calculatedCurrentRank = this.currentWeekStandings
                         .Select((t, i) => new { Index = i + 1, TeamId = t.Key })
-                        .First(t => t.TeamId == x.Key)
+                        .First(t => t.TeamId == team.Key)
                         .Index;
 
                     var result = new TeamWeeklyResult()
                     {
-                        Name = x.Value.Entry.Name,
+                        Name = this.fplLeague.Standings.Results.FirstOrDefault((Func<Api.League.ApiLeagueFplTeams, bool>)(team => team.Entry == team.Key)).EntryName,     // TODO: maube we need an actual dictionary of the teams in the league, seems to not exist anymore
                         HitsTakenCost = history.EventTransfersCost.Value,
                         ScoreBeforeHits = history.Points.Value,
                         TotalPoints = history.TotalPoints.Value,
@@ -397,7 +437,7 @@ namespace FplBot
             {
                 if (!this.fplPlayerSummaries.ContainsKey(p.Key))
                 {
-                    FplPlayerSummary summary = await string.Format(this.PlayerSummaryUrI, p.Key).GetJsonAsync<FplPlayerSummary>().ConfigureAwait(false);
+                    Api.Summary.ApiSoccerPlayerSummary summary = await string.Format(this.PlayerSummaryUrI, p.Key).GetJsonAsync<Api.Summary.ApiSoccerPlayerSummary>().ConfigureAwait(false);
                     this.fplPlayerSummaries.Add(p.Key, summary);
                 }
             }
@@ -406,7 +446,7 @@ namespace FplBot
             {
                 if (!this.fplPlayerSummaries.ContainsKey(p.Key))
                 {
-                    FplPlayerSummary summary = await string.Format(this.PlayerSummaryUrI, p.Key).GetJsonAsync<FplPlayerSummary>().ConfigureAwait(false);
+                    Api.Summary.ApiSoccerPlayerSummary summary = await string.Format(this.PlayerSummaryUrI, p.Key).GetJsonAsync<Api.Summary.ApiSoccerPlayerSummary>().ConfigureAwait(false);
                     this.fplPlayerSummaries.Add(p.Key, summary);
                 }
             }
@@ -419,8 +459,8 @@ namespace FplBot
                 var cptPick = pick.Value.Picks.Find(p => p.IsCaptain.Value);
                 var vicePick = pick.Value.Picks.Find(p => p.IsViceCaptain.Value);
 
-                var cptPlayer = this.fplPlayers[cptPick.Element.Value];
-                var vicePlayer = this.fplPlayers[vicePick.Element.Value];
+                var cptPlayer = this.soccerPlayers[cptPick.Element.Value];
+                var vicePlayer = this.soccerPlayers[vicePick.Element.Value];
 
                 CaptainChoice cc = new CaptainChoice()
                 {
@@ -479,8 +519,8 @@ namespace FplBot
                 }
             }
 
-            result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeam[i].Entry.Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.fplPlayers[i].FirstName} {this.fplPlayers[i].SecondName}").ToList())}. ");
-            result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeam[i].Entry.Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.fplPlayers[i].FirstName} {this.fplPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
+            result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
+            result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
 
             return result.ToString();
         }
@@ -495,19 +535,19 @@ namespace FplBot
 
             StringBuilder result = new StringBuilder();
 
-            string previousFirstPlace = this.lastWeekStandings.First().Value.Entry.Name ?? string.Empty;
-            string currentFirstPlace = this.currentWeekStandings.First().Value.Entry.Name;
-            string currentSecondPlace = this.currentWeekStandings.Take(2).Last().Value.Entry.Name;
+            string previousFirstPlace = this.lastWeekStandings.First().Value.Name ?? string.Empty;
+            string currentFirstPlace = this.currentWeekStandings.First().Value.Name;
+            string currentSecondPlace = this.currentWeekStandings.Take(2).Last().Value.Name;
 
-            long firstPlacePoints = this.currentWeekStandings.First().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
-            long secondPlacePoint = this.currentWeekStandings.Take(2).Last().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
+            long firstPlacePoints = this.currentWeekStandings.First().Value.Current.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
+            long secondPlacePoint = this.currentWeekStandings.Take(2).Last().Value.Current.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
 
-            long lastWeekFirstPlacePoints = this.currentWeekStandings.First().Value.History.Find(x => x.Event == this.currentEventId - 1)?.TotalPoints.Value ?? 0;
-            long lastWeeksecondPlacePoint = this.currentWeekStandings.Take(2).Last().Value.History.Find(x => x.Event == this.currentEventId - 1)?.TotalPoints.Value ?? 0;
+            long lastWeekFirstPlacePoints = this.currentWeekStandings.First().Value.Current.Find(x => x.Event == this.currentEventId - 1)?.TotalPoints.Value ?? 0;
+            long lastWeeksecondPlacePoint = this.currentWeekStandings.Take(2).Last().Value.Current.Find(x => x.Event == this.currentEventId - 1)?.TotalPoints.Value ?? 0;
 
-            string previousLastPlace = this.lastWeekStandings.Last().Value.Entry.Name ?? string.Empty;
-            string currentLastPlace = this.currentWeekStandings.Last().Value.Entry.Name;
-            long lastPlacePoints = this.currentWeekStandings.Last().Value.History.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
+            string previousLastPlace = this.lastWeekStandings.Last().Value.Name ?? string.Empty;
+            string currentLastPlace = this.currentWeekStandings.Last().Value.Name;
+            long lastPlacePoints = this.currentWeekStandings.Last().Value.Current.Find(x => x.Event == this.currentEventId).TotalPoints.Value;
 
             if (previousFirstPlace == currentFirstPlace)
             {
@@ -608,10 +648,10 @@ namespace FplBot
             Dictionary<long, long> teams = new Dictionary<long, long>();
             long highestPoints = 0;
 
-            foreach (var team in this.fplTeam.Values)
+            foreach (var team in this.fplTeams.Values)
             {
-                var history = team.History.Find(t => t.Event == this.currentEventId);
-                teams.Add(team.Entry.Id.Value, history.PointsOnBench.Value);
+                var history = team.Current.Find(t => t.Event == this.currentEventId);
+                teams.Add(team.Id, history.PointsOnBench.Value);
 
                 if (history.PointsOnBench.Value > highestPoints)
                 {
@@ -623,7 +663,7 @@ namespace FplBot
                 .GroupBy(y => y.Value)
                 .OrderByDescending(y => y.Key)
                 .First()
-                .Select(a => this.fplTeam[a.Key].Entry.Name)
+                .Select(a => this.fplTeams[a.Key].Name)
                 .ToList();
 
             result.Append($"{TextUtilities.NaturalParse(teansWithHighest)} left ");
@@ -722,9 +762,9 @@ namespace FplBot
 
             StringBuilder standings = new StringBuilder();
 
-            int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Entry.Name.Length);
+            int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Name.Length);
 
-            standings.AppendLine($"Standings for {this.fplSeason.League.Name} after GW#{this.currentEventId}:");
+            standings.AppendLine($"Standings for {this.fplLeague.League.Name} after GW#{this.currentEventId}:");
             standings.AppendLine("".PadLeft(longestTeamName + 22, '-'));
             standings.AppendLine($"Rank Chg. LW   Team{string.Empty.PadLeft(longestTeamName - 4)}   Pts.");
             standings.AppendLine("".PadLeft(longestTeamName + 22, '-')).AppendLine();
@@ -778,17 +818,18 @@ namespace FplBot
 
                 if (this.attachTable)
                 {
-                    Stream stream = persistence.GetStandingsStream();
-
-                    MimePart attachment = new MimePart("plain", "txt")
+                    using (Stream stream = persistence.GetStandingsStream())
                     {
-                        Content = new MimeContent(stream, ContentEncoding.Default),
-                        ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
-                        ContentTransferEncoding = ContentEncoding.Base64,
-                        FileName = Path.GetFileName($"Standings-GW{this.currentEventId.ToString()}.txt")
-                    };
+                        MimePart attachment = new MimePart("plain", "txt")
+                        {
+                            Content = new MimeContent(stream, ContentEncoding.Default),
+                            ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                            ContentTransferEncoding = ContentEncoding.Base64,
+                            FileName = Path.GetFileName($"Standings-GW{this.currentEventId.ToString()}.txt")
+                        };
 
-                    multipart.Add(attachment);
+                        multipart.Add(attachment);
+                    }
                 }
 
                 MimeMessage message = new MimeMessage();

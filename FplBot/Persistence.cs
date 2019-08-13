@@ -54,7 +54,7 @@ namespace FplBot
         /// </summary>
         internal void Initialize()
         {
-            this.logger.Log("Initializing persistent storage...");
+            this.logger.Log("Initializing persistent storage");
 
             if (useAzure)
             {
@@ -96,7 +96,7 @@ namespace FplBot
         /// <returns>The currently active gameweek retriveed from persistent storage</returns>
         internal int GetGameweek()
         {
-            this.logger.Log("Fetching current gameweek Id from persistent storage...");
+            this.logger.Log("Loading current gameweek Id from persistent storage");
 
             this.gameweek = this.useAzure ? int.Parse(gameweekBlob.DownloadText()) : int.Parse(File.ReadAllText(this.gameweekPath));
             return this.gameweek;
@@ -109,7 +109,7 @@ namespace FplBot
         {
             this.gameweek++;
 
-            this.logger.Log("Incrementing gameweek in persistent storage...");
+            this.logger.Log("Incrementing gameweek in persistent storage");
 
             if (this.useAzure)
             {
@@ -127,7 +127,7 @@ namespace FplBot
         /// <returns>A stream with the current standings</returns>
         internal Stream GetStandingsStream()
         {
-            this.logger.Log("Fetching weekly standings from persistent storage...");
+            this.logger.Log("Loading weekly standings from persistent storage");
 
             if (this.useAzure)
             {
@@ -149,7 +149,7 @@ namespace FplBot
         {
             if (result == null) return;
 
-            this.logger.Log("Saving weekly standings to persistent storage...");
+            this.logger.Log("Saving weekly standings to persistent storage");
 
             if (this.useAzure)
             {
