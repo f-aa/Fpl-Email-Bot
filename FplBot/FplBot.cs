@@ -279,29 +279,34 @@ namespace FplBot
         /// </summary>
         private void CalculateWeeklyRank()
         {
-            this.lastWeekStandings = this.fplTeams.OrderByDescending(x => x.Value.Current.Find(y => y.Event == this.currentEventId - 1).TotalPoints);
-            this.currentWeekStandings = this.fplTeams.OrderByDescending(x => x.Value.Current.Find(y => y.Event == this.currentEventId).TotalPoints);
+            this.lastWeekStandings = this.fplTeams
+                .OrderByDescending(t => t.Value.Current.Find(e => e.Event == this.currentEventId - 1).TotalPoints)
+                .ThenByDescending(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
+
+            this.currentWeekStandings = this.fplTeams
+                .OrderByDescending(t => t.Value.Current.Find(e => e.Event == this.currentEventId).TotalPoints)
+                .ThenByDescending(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
 
             this.weeklyResults = this.fplTeams
-                .Select(x =>
+                .Select(team =>
                 {
-                    Api.Team.ApiFplTeamEvents history = x.Value.Current.Find(y => y.Event == this.currentEventId);
-                    string chip = x.Value.Chips.Find(c => c.Event == this.currentEventId)?.Name ?? string.Empty;
+                    Api.Team.ApiFplTeamEvents history = team.Value.Current.Find(e => e.Event == this.currentEventId);
+                    string chip = team.Value.Chips.Find(c => c.Event == this.currentEventId)?.Name ?? string.Empty;
 
 
                     int calculatedLastRank = this.currentEventId == 1 ? -1 : this.lastWeekStandings
                         .Select((t, i) => new { Index = i + 1, TeamId = t.Key })
-                        .First(t => t.TeamId == x.Key)
+                        .First(t => t.TeamId == team.Key)
                         .Index;
 
                     int calculatedCurrentRank = this.currentWeekStandings
                         .Select((t, i) => new { Index = i + 1, TeamId = t.Key })
-                        .First(t => t.TeamId == x.Key)
+                        .First(t => t.TeamId == team.Key)
                         .Index;
 
                     var result = new TeamWeeklyResult()
                     {
-                        Name = this.fplLeague.Standings.Results.FirstOrDefault(team => team.Entry == x.Key).EntryName,     // TODO: maube we need an actual dictionary of the teams in the league, seems to not exist anymore
+                        Name = this.fplLeague.Standings.Results.FirstOrDefault((Func<Api.League.ApiLeagueFplTeams, bool>)(team => team.Entry == team.Key)).EntryName,     // TODO: maube we need an actual dictionary of the teams in the league, seems to not exist anymore
                         HitsTakenCost = history.EventTransfersCost.Value,
                         ScoreBeforeHits = history.Points.Value,
                         TotalPoints = history.TotalPoints.Value,
