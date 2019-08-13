@@ -1,4 +1,5 @@
 ﻿using Flurl.Http;
+using FplBot.Api;
 using FplBot.Data;
 using FplBot.Logging;
 using MailKit.Net.Smtp;
@@ -10,8 +11,6 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,10 +22,6 @@ namespace FplBot
     /// </summary>
     internal class FplBot
     {
-        private const string USERNAME = ""; // TODO: temp, move to app.config
-        private const string PASSWORD = ""; // TODO: temp, move to app.config
-
-        private readonly string FplAuthUri = "https://users.premierleague.com";
         private readonly string FplRootUri = "https://fantasy.premierleague.com/api/bootstrap-static";
         private readonly string LeagueStandingsUri = "https://fantasy.premierleague.com/api/leagues-classic/{0}/standings/?page_new_entries=1&page_standings=1&phase=1";
         private readonly string TeamUri = "https://fantasy.premierleague.com/api/entry/{0}/history";
@@ -36,6 +31,7 @@ namespace FplBot
         private readonly Dictionary<long, Api.Picks.ApiFplTeamPicks> fplPicks;
         private readonly Dictionary<long, Api.Summary.ApiSoccerPlayerSummary> fplPlayerSummaries;
         private readonly Dictionary<long, Api.Player.ApiSoccerPlayer> fplCaptains;
+        private readonly Authentication authentication;
         private readonly ILogger logger;
 
         private readonly long leagueId;
@@ -61,10 +57,7 @@ namespace FplBot
         private Persistence persistence;
 
         private int currentEventId;
-
         private bool isInitialized = false;
-
-        private System.Net.Cookie authCookie;
 
         public StringBuilder Output { get; set; }
 
@@ -115,6 +108,7 @@ namespace FplBot
             this.fplCaptains = new Dictionary<long, Api.Player.ApiSoccerPlayer>();
             this.persistence = new Persistence(this.logger, this.useAzure, this.azureBlobName);
             this.fplTeamNames = new Dictionary<long, string>();
+            this.authentication = new Authentication(this.logger);
 
             this.Output = new StringBuilder();
         }
@@ -129,21 +123,6 @@ namespace FplBot
 
             this.persistence.Initialize();
             this.currentEventId = this.persistence.GetGameweek();
-
-            var httpClient = new HttpClient(new HttpClientHandler() { AllowAutoRedirect = false }) { BaseAddress = new Uri(this.FplAuthUri) };
-            using (var flurlClient = new FlurlClient(httpClient).EnableCookies())
-            {
-                this.logger.Log("Aquiring authentication cookie...");
-                
-                var response = await flurlClient
-                    .Request("/accounts/login/")
-                    .AllowHttpStatus(HttpStatusCode.Redirect)
-                    .WithHeader("Content-Type", "application/x-www-form-urlencoded")
-                    .PostStringAsync($"login={USERNAME}&password={PASSWORD}&app=plfpl-web&redirect_uri=https://fantasy.premierleague.com/")
-                    .ConfigureAwait(false);
-
-                this.authCookie = flurlClient.Cookies.First().Value;
-            }
 
             this.logger.Log("Fetching bootstrap-static root...");
             this.fplRoot = await this.FplRootUri.GetJsonAsync<Api.Root.FplRoot>().ConfigureAwait(false);
@@ -245,8 +224,9 @@ namespace FplBot
 
             try
             {
+                var cookie = await this.authentication.GetCookie();
                 this.fplLeague = await string.Format(this.LeagueStandingsUri, this.leagueId)
-                    .WithCookie(this.authCookie)
+                    .WithCookie(cookie)
                     .GetJsonAsync<Api.League.ApiLeague>();
 
                 this.logger.Log($"Fetched {this.fplLeague.League.Name}");
@@ -820,17 +800,18 @@ namespace FplBot
 
                 if (this.attachTable)
                 {
-                    Stream stream = persistence.GetStandingsStream();
-
-                    MimePart attachment = new MimePart("plain", "txt")
+                    using (Stream stream = persistence.GetStandingsStream())
                     {
-                        Content = new MimeContent(stream, ContentEncoding.Default),
-                        ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
-                        ContentTransferEncoding = ContentEncoding.Base64,
-                        FileName = Path.GetFileName($"Standings-GW{this.currentEventId.ToString()}.txt")
-                    };
+                        MimePart attachment = new MimePart("plain", "txt")
+                        {
+                            Content = new MimeContent(stream, ContentEncoding.Default),
+                            ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                            ContentTransferEncoding = ContentEncoding.Base64,
+                            FileName = Path.GetFileName($"Standings-GW{this.currentEventId.ToString()}.txt")
+                        };
 
-                    multipart.Add(attachment);
+                        multipart.Add(attachment);
+                    }
                 }
 
                 MimeMessage message = new MimeMessage();

@@ -140,6 +140,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Api\Authentication.cs" />
     <Compile Include="Api\PicksClasses.cs" />
     <Compile Include="Api\PlayerSummary.cs" />
     <Compile Include="Api\LeagueClasses.cs" />
