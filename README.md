@@ -60,11 +60,18 @@ Rank Chg. LW   Team                   Pts.
 
 - Windows OS
 - An email account
+- An FPL account
 - Azure subscription (optional)
 
 ## Setup
 
 Download the latest release (https://github.com/f-aa/Fpl-Email-Bot/releases) and unzip it into a folder on your computer. Open the FplBot.exe.config with a text editor (like Notepad) and fill in all the required values. Follow the instructions in the configuration file for help. If you are planning on running the file locally from your computer you can keep the useAzure and azureBlobStorage settings as they are. Make sure you save your file before attempting to run the bot.
+
+> **PLEASE NOTE**
+> 
+> Starting with the 2019/2020 season the FPL API requires an authenticated user to view leagues and league standings. Due to this a username and password is required for the FPL Email Bot to function. The username and password will only be used to connect to the site to fetch league standings and does not get sent anywhere else.
+> 
+> The username/password does not require to be in the league you are monitoring. Create a dummy account if you don't want to use your main account.
 
 After finishing configuring the bot you can double-click the FplBot.exe file (or run from command-line) and it will process all gameweeks up until the current one. Which gameweek to process next is controlled by the gameweek.txt file so make sure you don't delete it. Once all gameweeks have been processed you can close the window. Run it again every time a gameweek finished (or keep it running for the next 6 months, who am I to tell you what to do).
 
