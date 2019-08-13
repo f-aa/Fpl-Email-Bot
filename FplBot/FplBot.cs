@@ -27,7 +27,7 @@ namespace FplBot
         private readonly string TeamUri = "https://fantasy.premierleague.com/api/entry/{0}/history";
         private readonly string PicksUri = "https://fantasy.premierleague.com/api/entry/{0}/event/{1}/picks";
         private readonly string PlayerSummaryUrI = "https://fantasy.premierleague.com/api/element-summary/{0}";
-        private readonly Dictionary<long, FplTeamEntry> fplTeam;
+        private readonly Dictionary<long, FplTeamEntry> fplTeams;
         private readonly Dictionary<long, Api.Picks.ApiFplTeamPicks> fplPicks;
         private readonly Dictionary<long, Api.Summary.ApiSoccerPlayerSummary> fplPlayerSummaries;
         private readonly Dictionary<long, Api.Player.ApiSoccerPlayer> fplCaptains;
@@ -69,6 +69,8 @@ namespace FplBot
         {
             this.logger = logger;
 
+            string fplUsername = string.Empty;
+            string fplPassword = string.Empty;
             try
             {
                 this.logger.Log("Loading configuration file");
@@ -84,10 +86,15 @@ namespace FplBot
                 this.azureBlobName = ConfigurationManager.AppSettings["azureBlobName"];
                 this.interval = int.Parse(ConfigurationManager.AppSettings["interval"]);
 
+                fplUsername = ConfigurationManager.AppSettings["fplUsername"];
+                fplPassword = ConfigurationManager.AppSettings["fplPassword"];
+
                 if (string.IsNullOrWhiteSpace(this.emailUser) ||
                     string.IsNullOrWhiteSpace(this.emailPassword) ||
                     string.IsNullOrWhiteSpace(this.emailFrom) ||
                     string.IsNullOrWhiteSpace(this.smtpServer) ||
+                    string.IsNullOrWhiteSpace(fplUsername) ||
+                    string.IsNullOrWhiteSpace(fplPassword) ||
                     (useAzure && string.IsNullOrWhiteSpace(this.azureBlobName)))
                 {
                     throw new ArgumentException("Missing or incorrect configuration. Please make sure your FplBot.exe.config file is properly configured.");
@@ -102,13 +109,13 @@ namespace FplBot
                 Environment.Exit(-1);
             }
 
-            this.fplTeam = new Dictionary<long, FplTeamEntry>();
+            this.fplTeams = new Dictionary<long, FplTeamEntry>();
             this.fplPicks = new Dictionary<long, Api.Picks.ApiFplTeamPicks>();
             this.fplPlayerSummaries = new Dictionary<long, Api.Summary.ApiSoccerPlayerSummary>();
             this.fplCaptains = new Dictionary<long, Api.Player.ApiSoccerPlayer>();
             this.persistence = new Persistence(this.logger, this.useAzure, this.azureBlobName);
             this.fplTeamNames = new Dictionary<long, string>();
-            this.authentication = new Authentication(this.logger);
+            this.authentication = new Authentication(fplUsername, fplPassword, this.logger);
 
             this.Output = new StringBuilder();
         }
@@ -149,6 +156,12 @@ namespace FplBot
                 this.Output.AppendLine($"Beep boop! I am a robot. This is your weekly FPL update.").AppendLine();
 
                 await this.LoadApiDataAsync();
+
+                if (this.fplTeams.Count() < 1)
+                {
+                    this.logger.Log($"Could not find any teams in league {this.fplLeague.League.Name}. Did you enter the correct ID? Terminating application.");
+                    Environment.Exit(-1);
+                }
 
                 this.CalculateWeeklyRank();
 
@@ -248,7 +261,7 @@ namespace FplBot
 
                 await Task.WhenAll(teamTask, picksTask).ConfigureAwait(false);
 
-                this.fplTeam.Add(standing.Entry, new FplTeamEntry()
+                this.fplTeams.Add(standing.Entry, new FplTeamEntry()
                 {
                     Chips = teamTask.Result.Chips,
                     Current = teamTask.Result.Current,
@@ -266,10 +279,10 @@ namespace FplBot
         /// </summary>
         private void CalculateWeeklyRank()
         {
-            this.lastWeekStandings = this.fplTeam.OrderByDescending(x => x.Value.Current.Find(y => y.Event == this.currentEventId - 1).TotalPoints);
-            this.currentWeekStandings = this.fplTeam.OrderByDescending(x => x.Value.Current.Find(y => y.Event == this.currentEventId).TotalPoints);
+            this.lastWeekStandings = this.fplTeams.OrderByDescending(x => x.Value.Current.Find(y => y.Event == this.currentEventId - 1).TotalPoints);
+            this.currentWeekStandings = this.fplTeams.OrderByDescending(x => x.Value.Current.Find(y => y.Event == this.currentEventId).TotalPoints);
 
-            this.weeklyResults = this.fplTeam
+            this.weeklyResults = this.fplTeams
                 .Select(x =>
                 {
                     Api.Team.ApiFplTeamEvents history = x.Value.Current.Find(y => y.Event == this.currentEventId);
@@ -501,8 +514,8 @@ namespace FplBot
                 }
             }
 
-            result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeam[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
-            result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeam[i].Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
+            result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
+            result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
 
             return result.ToString();
         }
@@ -630,7 +643,7 @@ namespace FplBot
             Dictionary<long, long> teams = new Dictionary<long, long>();
             long highestPoints = 0;
 
-            foreach (var team in this.fplTeam.Values)
+            foreach (var team in this.fplTeams.Values)
             {
                 var history = team.Current.Find(t => t.Event == this.currentEventId);
                 teams.Add(team.Id, history.PointsOnBench.Value);
@@ -645,7 +658,7 @@ namespace FplBot
                 .GroupBy(y => y.Value)
                 .OrderByDescending(y => y.Key)
                 .First()
-                .Select(a => this.fplTeam[a.Key].Name)
+                .Select(a => this.fplTeams[a.Key].Name)
                 .ToList();
 
             result.Append($"{TextUtilities.NaturalParse(teansWithHighest)} left ");
