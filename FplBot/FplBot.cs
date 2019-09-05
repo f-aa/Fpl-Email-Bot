@@ -11,6 +11,7 @@ using System.Configuration;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,11 +23,11 @@ namespace FplBot
     /// </summary>
     internal class FplBot
     {
-        private readonly string FplRootUri = "https://fantasy.premierleague.com/api/bootstrap-static";
-        private readonly string LeagueStandingsUri = "https://fantasy.premierleague.com/api/leagues-classic/{0}/standings/?page_new_entries=1&page_standings=1&phase=1";
-        private readonly string TeamUri = "https://fantasy.premierleague.com/api/entry/{0}/history";
-        private readonly string PicksUri = "https://fantasy.premierleague.com/api/entry/{0}/event/{1}/picks";
-        private readonly string PlayerSummaryUrI = "https://fantasy.premierleague.com/api/element-summary/{0}";
+        private readonly string FplRootUri = "https://fantasy.premierleague.com/api/bootstrap-static/";
+        private readonly string LeagueStandingsUri = "https://fantasy.premierleague.com/api/leagues-classic/{0}/standings/";
+        private readonly string TeamUri = "https://fantasy.premierleague.com/api/entry/{0}/history/";
+        private readonly string PicksUri = "https://fantasy.premierleague.com/api/entry/{0}/event/{1}/picks/";
+        private readonly string PlayerSummaryUrI = "https://fantasy.premierleague.com/api/element-summary/{0}/";
         private readonly Dictionary<long, FplTeamEntry> fplTeams;
         private readonly Dictionary<long, Api.Picks.ApiFplTeamPicks> fplPicks;
         private readonly Dictionary<long, Api.Summary.ApiSoccerPlayerSummary> fplPlayerSummaries;
@@ -150,8 +151,7 @@ namespace FplBot
 
             if (this.isInitialized &&
                 this.currentEvent != null &&
-                this.currentEvent.Finished.Value &&     // Make sure gameweek is finished
-                this.currentEvent.DataChecked.Value)    // Make sure Match points and Bonus points have been processed and League Tables updated
+                this.currentEvent.Finished.Value)   // Make sure gameweek is finished
             {
                 this.Output.AppendLine($"Beep boop! I am a robot. This is your weekly FPL update.").AppendLine();
 
@@ -257,20 +257,25 @@ namespace FplBot
                 this.logger.Log($"Fetching {standing.EntryName}...");
 
                 var teamTask = string.Format(this.TeamUri, standing.Entry).GetJsonAsync<Api.Team.ApiFplTeam>();
-                var picksTask = string.Format(this.PicksUri, standing.Entry, this.currentEventId).GetJsonAsync<Api.Picks.ApiFplTeamPicks>();
+                var picksTask = string.Format(this.PicksUri, standing.Entry, this.currentEventId)
+                    .AllowHttpStatus(HttpStatusCode.NotFound)   // Fix for teams that signed up after GW1
+                    .GetJsonAsync<Api.Picks.ApiFplTeamPicks>();
 
                 await Task.WhenAll(teamTask, picksTask).ConfigureAwait(false);
 
-                this.fplTeams.Add(standing.Entry, new FplTeamEntry()
+                if (picksTask.Result.EntryHistory != null)   // If team doesn't have picks, they weren't part of that gameweek
                 {
-                    Chips = teamTask.Result.Chips,
-                    Current = teamTask.Result.Current,
-                    Id = standing.Entry,
-                    Name = standing.EntryName,
-                    Past = teamTask.Result.Past
-                });
+                    this.fplTeams.Add(standing.Entry, new FplTeamEntry()
+                    {
+                        Chips = teamTask.Result.Chips,
+                        Current = teamTask.Result.Current,
+                        Id = standing.Entry,
+                        Name = standing.EntryName,
+                        Past = teamTask.Result.Past
+                    });
 
-                this.fplPicks.Add(standing.Entry, picksTask.Result);
+                    this.fplPicks.Add(standing.Entry, picksTask.Result);
+                }
             }
         }
 
@@ -280,7 +285,7 @@ namespace FplBot
         private void CalculateWeeklyRank()
         {
             this.lastWeekStandings = this.fplTeams
-                .OrderByDescending(t => t.Value.Current.Find(e => e.Event == this.currentEventId - 1).TotalPoints)
+                .OrderByDescending(t => t.Value.Current.DefaultIfEmpty(null).SingleOrDefault(e => e.Event == this.currentEventId - 1)?.TotalPoints ?? 0)
                 .ThenByDescending(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
 
             this.currentWeekStandings = this.fplTeams
@@ -306,7 +311,7 @@ namespace FplBot
 
                     var result = new TeamWeeklyResult()
                     {
-                        Name = this.fplLeague.Standings.Results.FirstOrDefault((Func<Api.League.ApiLeagueFplTeams, bool>)(team => team.Entry == team.Key)).EntryName,     // TODO: maube we need an actual dictionary of the teams in the league, seems to not exist anymore
+                        Name = this.fplLeague.Standings.Results.FirstOrDefault(t => t.Entry == team.Key).EntryName, // TODO: maube we need an actual dictionary of the teams in the league, seems to not exist anymore
                         HitsTakenCost = history.EventTransfersCost.Value,
                         ScoreBeforeHits = history.Points.Value,
                         TotalPoints = history.TotalPoints.Value,
