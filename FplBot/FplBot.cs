@@ -31,7 +31,6 @@ namespace FplBot
         private readonly Dictionary<long, FplTeamEntry> fplTeams;
         private readonly Dictionary<long, Api.Picks.ApiFplTeamPicks> fplPicks;
         private readonly Dictionary<long, Api.Summary.ApiSoccerPlayerSummary> fplPlayerSummaries;
-        private readonly Dictionary<long, Api.Player.ApiSoccerPlayer> fplCaptains;
         private readonly Authentication authentication;
         private readonly ILogger logger;
 
@@ -45,17 +44,16 @@ namespace FplBot
         private readonly bool useAzure;
         private readonly string azureBlobName;
         private readonly int interval;
-        private string[] recipients;
+        private readonly string[] recipients;
+        private readonly Persistence persistence;
 
         IOrderedEnumerable<TeamWeeklyResult> weeklyResults;
         IOrderedEnumerable<KeyValuePair<long, FplTeamEntry>> lastWeekStandings;
         IOrderedEnumerable<KeyValuePair<long, FplTeamEntry>> currentWeekStandings;
         private Api.Root.FplRoot fplRoot;
         private Dictionary<long, Api.Player.ApiSoccerPlayer> soccerPlayers;
-        private Dictionary<long, string> fplTeamNames;
         private Api.League.ApiLeague fplLeague;
         private Api.Root.Event currentEvent;
-        private Persistence persistence;
 
         private int currentEventId;
         private bool isInitialized = false;
@@ -113,9 +111,7 @@ namespace FplBot
             this.fplTeams = new Dictionary<long, FplTeamEntry>();
             this.fplPicks = new Dictionary<long, Api.Picks.ApiFplTeamPicks>();
             this.fplPlayerSummaries = new Dictionary<long, Api.Summary.ApiSoccerPlayerSummary>();
-            this.fplCaptains = new Dictionary<long, Api.Player.ApiSoccerPlayer>();
             this.persistence = new Persistence(this.logger, this.useAzure, this.azureBlobName);
-            this.fplTeamNames = new Dictionary<long, string>();
             this.authentication = new Authentication(fplUsername, fplPassword, this.logger);
 
             this.Output = new StringBuilder();
