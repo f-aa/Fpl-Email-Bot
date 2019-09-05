@@ -808,6 +808,8 @@ namespace FplBot
         {
             this.logger.Log("Attempting to send email...");
 
+            Stream stream = null;
+
             try
             {
                 if (this.Output == null) throw new Exception("Could not find an output to email.");
@@ -819,18 +821,17 @@ namespace FplBot
 
                 if (this.attachTable)
                 {
-                    using (Stream stream = persistence.GetStandingsStream())
-                    {
-                        MimePart attachment = new MimePart("plain", "txt")
-                        {
-                            Content = new MimeContent(stream, ContentEncoding.Default),
-                            ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
-                            ContentTransferEncoding = ContentEncoding.Base64,
-                            FileName = Path.GetFileName($"Standings-GW{this.currentEventId.ToString()}.txt")
-                        };
+                    stream = persistence.GetStandingsStream();
 
-                        multipart.Add(attachment);
-                    }
+                    MimePart attachment = new MimePart("plain", "txt")
+                    {
+                        Content = new MimeContent(stream, ContentEncoding.Default),
+                        ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                        ContentTransferEncoding = ContentEncoding.Base64,
+                        FileName = Path.GetFileName($"Standings-GW{this.currentEventId.ToString()}.txt")
+                    };
+
+                    multipart.Add(attachment);
                 }
 
                 MimeMessage message = new MimeMessage();
@@ -861,6 +862,13 @@ namespace FplBot
             {
                 this.logger.Log($"Unable to send email: {ex.Message}");
                 return false;
+            }
+            finally
+            {
+                if (stream != null)
+                {
+                    stream.Dispose();
+                }
             }
 
             return true;
