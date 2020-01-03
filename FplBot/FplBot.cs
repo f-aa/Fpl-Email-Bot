@@ -168,12 +168,14 @@ namespace FplBot
                 string movement = this.currentEventId > 1 ? this.CalculateTopAndBottomStandings() : string.Empty;
                 string moversShakers = this.currentEventId > 1 ? this.CalculateMoversAndShakers() : string.Empty;
                 string pointsBenched = this.CalculatePointsOnBench();
+                string autoSubs = this.CalculateAutomaticSubs();
                 string hitsTaken = this.PrintHitsTaken();
                 string chipsUsed = this.CalculateChipsUsed();
 
                 this.Output.AppendLine(topResults);
                 this.Output.AppendLine(bottomResults);
                 this.Output.AppendLine(captains);
+                this.Output.Append(autoSubs).AppendLine(pointsBenched);
 
                 if (!string.IsNullOrEmpty(movement))
                 {
@@ -187,10 +189,11 @@ namespace FplBot
                     persistence.SaveStandings(standings);
                 }
 
+                this.Output.AppendLine();
                 this.Output.AppendLine("Notable news:").AppendLine();
 
                 this.Output.Append("- ").AppendLine(averageResults);
-                this.Output.Append("- ").AppendLine(pointsBenched);
+                //this.Output.Append("- ").AppendLine(pointsBenched);
                 this.Output.Append("- ").AppendLine(hitsTaken);
                 this.Output.Append("- ").AppendLine(chipsUsed);
 
@@ -271,6 +274,17 @@ namespace FplBot
                     });
 
                     this.fplPicks.Add(standing.Entry, picksTask.Result);
+                }
+            }
+
+            var pickedPlayers = this.fplPicks.SelectMany(p => p.Value.Picks.Select(pp => pp.Element.Value)).Distinct();
+            this.logger.Log($"Fetching detailed statistics {pickedPlayers.Count()} players...");
+            foreach (var p in pickedPlayers.AsParallel())
+            {
+                if (!this.fplPlayerSummaries.ContainsKey(p))
+                {
+                    Api.Summary.ApiSoccerPlayerSummary summary = await string.Format(this.PlayerSummaryUrI, p).GetJsonAsync<Api.Summary.ApiSoccerPlayerSummary>().ConfigureAwait(false);
+                    this.fplPlayerSummaries.Add(p, summary);
                 }
             }
         }
@@ -595,6 +609,10 @@ namespace FplBot
             return result.ToString();
         }
 
+        /// <summary>
+        /// Figures out any major movements in rank for the game week
+        /// </summary>
+        /// <returns></returns>
         private string CalculateMoversAndShakers()
         {
             StringBuilder result = new StringBuilder();
@@ -664,21 +682,123 @@ namespace FplBot
                 }
             }
 
-            var teansWithHighest = teams
+            var teamsWithHighest = teams
                 .GroupBy(y => y.Value)
                 .OrderByDescending(y => y.Key)
                 .First()
                 .Select(a => this.fplTeams[a.Key].Name)
                 .ToList();
 
-            result.Append($"{TextUtilities.NaturalParse(teansWithHighest)} left ");
+            result.Append($"{TextUtilities.NaturalParse(teamsWithHighest)}");
+
+            if (highestPoints > 9)
+            {
+                result.Append(" will be kicking themselves after having");
+            }
+
+            result.Append(" left ");
 
             if (highestPoints > 20)
             {
                 result.Append($"{TextUtilities.GetGoodAdjective()} ");
             }
 
-            result.Append($"{highestPoints} points on the bench which was the highest in the league.");
+            result.AppendLine($"{highestPoints} points on the bench which was the highest in the league.");
+
+            return result.ToString();
+        }
+
+        private string CalculateAutomaticSubs()
+        {
+            this.logger.Log("Calculating automatic subs");
+
+            StringBuilder result = new StringBuilder();
+
+            var allPicks = this.fplPicks
+                .Where(team => team.Value.AutomaticSubs.Count() > 0)
+                .Select(team =>
+
+                new AutomaticSub()
+                {
+                    ElementInScore = team.Value.AutomaticSubs.Sum(sub => this.fplPlayerSummaries[sub.ElementIn.Value].History[this.currentEventId - 1].TotalPoints.Value),
+                    ElementInName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementIn.Value].WebName)),
+                    ElementOutName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementOut.Value].WebName)),
+                    TeamEntryId = team.Key,
+                })
+                .OrderByDescending(x => x.ElementInScore);
+            
+            var groupedPicks = allPicks
+                .GroupBy(x => x.ElementInScore)
+                .OrderByDescending(x => x.Key);
+
+            var best = groupedPicks.First();
+            var worst = groupedPicks.Last();
+
+            if (allPicks.Count() < 1)
+            {
+                result.AppendLine("No teams had automatic substitutions made this week.");
+            }
+            else
+            {
+                if (best.Count() > 1)
+                {
+                    result.Append($"Managers from {TextUtilities.NaturalParse(best.Select(i => $"{this.fplTeams[i.TeamEntryId].Name}").ToList())} did the best with automatic substitutions this week receiving");
+
+                    if (best.First().ElementInScore > 20)
+                    {
+                        result.Append($" {(TextUtilities.GetGoodAdjective())}");
+                    }
+                    else if (best.First().ElementInScore < 5)
+                    {
+                        result.Append($" {(TextUtilities.GetPoorAdjective())}");
+                    }
+
+                    result.Append($" {best.First().ElementInScore} point{TextUtilities.Pluralize((int)best.First().ElementInScore)} off the bench in liue of players not playing. ");
+                }
+                else
+                {
+                    result.Append($"This week {TextUtilities.NaturalParse(best.Select(i => $"{this.fplTeams[i.TeamEntryId].Name}").ToList())} did the best with automatic substitutions receiving");
+
+
+                    if (best.First().ElementInScore > 20)
+                    {
+                        result.Append($" {(TextUtilities.GetGoodAdjective())}");
+                    }
+                    else if (best.First().ElementInScore < 5)
+                    {
+                        result.Append($" {(TextUtilities.GetPoorAdjective())}");
+                    }
+
+                    result.Append($" {best.First().ElementInScore} point{TextUtilities.Pluralize((int)best.First().ElementInScore)} from {best.First().ElementInName} coming off the bench in liue of {best.First().ElementOutName}. ");
+
+                }
+
+                if (best.First().ElementInScore != worst.First().ElementInScore)
+                {
+                    if (worst.Count() > 2)
+                    {
+                        result.Append($"{TextUtilities.NaturalParse(worst.Select(i => $"{this.fplTeams[i.TeamEntryId].Name}").ToList())} were not as fortunate getting");
+                        
+                        if (worst.First().ElementInScore < 1)
+                        {
+                            result.Append($" {(TextUtilities.GetPoorAdjective())}");
+                        }
+
+                        result.Append($" {worst.First().ElementInScore} point{TextUtilities.Pluralize((int)worst.First().ElementInScore)} from their automatic subs. ");
+                    }
+                    else
+                    {
+                        result.Append($"{TextUtilities.NaturalParse(worst.Select(i => $"{this.fplTeams[i.TeamEntryId].Name}").ToList())} was not as fortunate getting"); 
+
+                        if (worst.First().ElementInScore < 1)
+                        {
+                            result.Append($" {(TextUtilities.GetPoorAdjective())}");
+                        }
+
+                        result.Append($" {worst.First().ElementInScore} point{TextUtilities.Pluralize((int)worst.First().ElementInScore)} from {worst.First().ElementInName} who covered for {worst.First().ElementOutName}. ");
+                    }
+                }
+            }     
 
             return result.ToString();
         }
@@ -826,6 +946,7 @@ namespace FplBot
         /// <remarks>Email addresses must be configured in the app.config file, as the API does not supply the addresses.</remarks>
         private bool SendEmail()
         {
+            return true; // TODO: DON'T CHECK THIS IN!
             this.logger.Log("Attempting to send email...");
 
             Stream stream = null;
