@@ -282,11 +282,11 @@ namespace FplBot
         {
             this.lastWeekStandings = this.fplTeams
                 .OrderByDescending(t => t.Value.Current.DefaultIfEmpty(null).SingleOrDefault(e => e.Event == this.currentEventId - 1)?.TotalPoints ?? 0)
-                .ThenByDescending(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
+                .ThenBy(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
 
             this.currentWeekStandings = this.fplTeams
                 .OrderByDescending(t => t.Value.Current.Find(e => e.Event == this.currentEventId).TotalPoints)
-                .ThenByDescending(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
+                .ThenBy(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
 
             this.weeklyResults = this.fplTeams
                 .Select(team =>
@@ -311,6 +311,9 @@ namespace FplBot
                         HitsTakenCost = history.EventTransfersCost.Value,
                         ScoreBeforeHits = history.Points.Value,
                         TotalPoints = history.TotalPoints.Value,
+                        TotalTransfers = team.Value.Current.Sum(e => e.EventTransfers).Value,
+                        TeamValue = history.Value.Value / 10f,
+                        GameWeekPoints = history.Points.Value,
                         ChipUsed = chip,
                         PreviousWeekPosition = calculatedLastRank,
                         CurrentWeekPosition = calculatedCurrentRank
@@ -605,7 +608,7 @@ namespace FplBot
                 .Where(team => team.PositionChangedSinceLastWeek == highestDrop);
 
 
-            if (highestClimbed < 2 && highestDrop < 2)
+            if (highestClimbed < 2 && highestDrop < -2)
             {
                 result.Append($"There were no significants movement on the overall standings this week.");
             }
@@ -766,9 +769,9 @@ namespace FplBot
             int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Name.Length);
 
             standings.AppendLine($"Standings for {this.fplLeague.League.Name} after GW#{this.currentEventId}:");
-            standings.AppendLine("".PadLeft(longestTeamName + 22, '-'));
-            standings.AppendLine($"Rank Chg. LW   Team{string.Empty.PadLeft(longestTeamName - 4)}   Pts.");
-            standings.AppendLine("".PadLeft(longestTeamName + 22, '-')).AppendLine();
+            standings.AppendLine("".PadLeft(longestTeamName + 37, '-'));
+            standings.AppendLine($"Rank Chg. LW   Team{string.Empty.PadLeft(longestTeamName - 4)}  GW Total   TT     TV");
+            standings.AppendLine("".PadLeft(longestTeamName + 37, '-')).AppendLine();
 
             foreach (var team in this.weeklyResults.OrderBy(x => x.CurrentWeekPosition))
             {
@@ -777,6 +780,9 @@ namespace FplBot
                 string previousRank = this.currentEventId == 1 ? "--" : team.PreviousWeekPosition.ToString().PadLeft(2);
                 string teamName = team.Name.PadRight(longestTeamName);
                 string points = team.TotalPoints.ToString().PadLeft(4);
+                string totalTransfers = team.TotalTransfers.ToString().PadLeft(3);
+                string gameweekPoints = team.GameWeekPoints.ToString().PadLeft(2);
+                string teamValue = team.TeamValue.ToString("N1").PadLeft(5);
 
                 string movement;
 
@@ -793,8 +799,15 @@ namespace FplBot
                     movement = "up";
                 }
 
-                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {teamName}   {points}");
+                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {teamName}  {gameweekPoints}  {points}  {totalTransfers}  {teamValue}");
             }
+
+            standings.AppendLine();
+            standings.AppendLine("".PadLeft(longestTeamName + 37, '-'));
+            standings.AppendLine("LW: Last weeks rank");
+            standings.AppendLine("GW: Game week points");
+            standings.AppendLine("TT: Total transfers");
+            standings.AppendLine("TV: Team value");
 
             return standings;
         }

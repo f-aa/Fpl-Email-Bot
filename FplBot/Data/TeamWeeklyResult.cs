@@ -33,6 +33,21 @@
         internal long TotalPoints { get; set; }
 
         /// <summary>
+        /// Total transfers made during season
+        /// </summary>
+        internal long TotalTransfers { get; set; }
+
+        /// <summary>
+        /// Total team value
+        /// </summary>
+        internal float TeamValue { get; set; }
+
+        /// <summary>
+        /// Points for this game week
+        /// </summary>
+        internal long GameWeekPoints { get; set; }
+        
+        /// <summary>
         /// The position in the mini-league this team reached this week
         /// </summary>
         internal int CurrentWeekPosition { get; set; }
