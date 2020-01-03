@@ -946,7 +946,6 @@ namespace FplBot
         /// <remarks>Email addresses must be configured in the app.config file, as the API does not supply the addresses.</remarks>
         private bool SendEmail()
         {
-            return true; // TODO: DON'T CHECK THIS IN!
             this.logger.Log("Attempting to send email...");
 
             Stream stream = null;
