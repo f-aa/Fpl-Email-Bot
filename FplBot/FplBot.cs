@@ -772,7 +772,7 @@ namespace FplBot
 
             standings.AppendLine($"Standings for {this.fplLeague.League.Name} after GW#{this.currentEventId}:");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
-            standings.AppendLine($"Rank Chg. LW   Overall  Team{string.Empty.PadLeft(longestTeamName - 4)}   GW  Total   TT   TmVal");
+            standings.AppendLine($"Rank Chg. PW   Overall  Team{string.Empty.PadLeft(longestTeamName - 4)}   GW  Total   TT   TmVal");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-')).AppendLine();
 
             foreach (var team in this.weeklyResults.OrderBy(x => x.CurrentWeekPosition))
@@ -807,10 +807,14 @@ namespace FplBot
 
             standings.AppendLine();
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
-            standings.AppendLine("LW: Last weeks rank");
-            standings.AppendLine("GW: Game week points");
-            standings.AppendLine("TT: Total transfers");
-            standings.AppendLine("TmVal: Team value");
+            standings.AppendLine($"Rank:    Current rank in league {this.fplLeague.League.Name}");
+            standings.AppendLine("Chg.:    Movement in league compared to previous week");
+            standings.AppendLine("PW:      Previous week rank in league");
+            standings.AppendLine("Overall: Rank amongst all players in FPL");
+            standings.AppendLine("GW:      Game week points");
+            standings.AppendLine("Total:   Point sum of all game weeks");
+            standings.AppendLine("TT:      Total transfers");
+            standings.AppendLine("TmVal:   Team value (including bank)");
 
             return standings;
         }
