@@ -7,22 +7,24 @@ Example email body:
 ```
 Beep boop! I am a robot. This is your weekly FPL update.
 
-The winner for gameweek #7 was Gnarly Norwegians with 82 points! Rounding up the top 3 for the week was Kick it in the net!! (72 pts) and The B Team (63 pts).
+The winner for gameweek #21 was Kotterpool with 71 points! Rounding up the top 3 for the week was windsor wildlings (70 pts) and The B Team (68 pts).
 
-The worst ranking teams this week were The Goon Squad (44 pts), Kotterpool (43 pts), Relegation FC (39 pts), and Big Red Dog (32 pts). You should probably be embarrassed. 
+The worst ranking teams this week were gEaR (51 pts), Hillhurst Hotspur (51 pts), JLG (44 pts), and Team Belgrave (34 pts). You should probably be embarrassed.
 
-When it came to captaincy choice Kick it in the net!! did the best this week with 26 point from Harry Kane. On the other end of the spectrum were The Goon Squad who had picked Sadio Mané for a total of 2 points. You receive the armband of shame for this week. 
+When it came to captaincy choice Kotterpool did the best this week with 20 point from Mohamed Salah. On the other end of the spectrum were Chupacabra, Gnarly Norwegians, Hillhurst Hotspur, Slaughterhouse 11, FC AeroZeppelin, Beeston FC, JLG, and Mount Pukki who had picked Raúl Jiménez, Kevin De Bruyne, and Harry Kane for a total of 4 points. You receive the armband of shame for this week.
 
-Gnarly Norwegians with 482 total points is the new league leader, supplanting last weeks leader Goes to 11. At the other end Big Red Dog is the new sap in last place with a miserable 295 points total.
+This week The B Team did the best with automatic substitutions receiving 11 points from Maddison coming off the bench in liue of Vardy. JLG was not as fortunate getting a paltry 0 points from Ramsdale and Rico who covered for Adrián and Vardy. Hillhurst Hotspur will be kicking themselves after having left 14 points on the bench which was the highest in the league.
 
-As for shakers and movers Man City Minions climbed 4 spots this week. In the not so great department we have Relegation FC dropping 3 spots.
+Chupacabra stay at the top of the table with 1332 points, although Gnarly Norwegians is creeping closer 92 points behind. At the other end Team Belgrave continues to languish in last place with a paltry 825 points.
+
+As for shakers and movers Gnarly Norwegians climbed 2 spots this week. In the not so great department we have JLG dropping 2 spots.
+
 
 Notable news:
 
-- 10 teams managed to reach or beat the overall average of 51 points for the week. 
-- FC Grunge left an extraordinary 23 points on the bench which was the highest in the league.
-- Gear (-4 pts) and Slaughterhouse 11 (-4 pts) both took transfer hits.
-- Gnarly Norwegians (wildcard) was the only team to use a chip this week.
+- 16 teams managed to reach or beat the overall average of 48 points for the week.
+- Beeston FC (-4 pts) and JLG (-4 pts) both took transfer hits.
+- The Gooners (wildcard) was the only team to use a chip this week.
 
 Your friendly FPL bot will return next gameweek with another update.
 
@@ -31,34 +33,45 @@ Your friendly FPL bot will return next gameweek with another update.
 Example of attached standings file:
 
 ```
-Standings for Oskana FC after GW#7:
-------------------------------------------
-Rank Chg. LW   Team                   Pts.
-------------------------------------------
+Standings for Oskana FC after GW#21:
+------------------------------------------------------------------
+Rank Chg. PW   Overall  Team                GW  Total   TT   TmVal
+------------------------------------------------------------------
 
- 1   up    3   Gnarly Norwegians       482
- 2   dn    1   Goes to 11              462
- 3   dn    2   Slaughterhouse 11       455
- 4   up    5   Gear                    445
- 5   dn    4   Chupacabra              438
- 6   --    6   Beeston FC              412
- 7   --    7   Hillhurst Hotspur       394
- 8   --    8   JoSalah                 387
- 9   up   11   Kick it in the net!!    379
-10   --   10   Daniel's Spaniels       362
-11   up   15   Man City Minions        355
-12   dn    9   Relegation FC           353
-13   dn   12   Kotterpool              348
-14   --   14   FC Grunge               347
-15   dn   13   The Goon Squad          344
-16   --   16   windsor wildlings       330
-17   up   18   The B Team              309
-18   dn   17   Big Red Dog             295
+1    --   1    268      Chupacabra          59   1332   20   106.0
+2    up   4    46.6k    Gnarly Norwegians   63   1240   15   106.6
+3    dn   2    48.0k    gEaR                51   1240   24   105.1
+4    dn   3    65.4k    Hillhurst Hotspur   51   1232   20   104.3
+5    --   5    308k     The B Team          68   1184   17   103.9
+6    --   6    320k     Slaughterhouse 11   67   1183   22   102.1
+7    --   7    577k     Man City Mafia      54   1158   20   104.9
+8    up   9    650k     Kotterpool          71   1152   15   102.0
+9    dn   8    749k     Relegation FC       61   1145   16   100.9
+10   --   10   1.07M    The Gooners         63   1125   11   100.3
+11   --   11   1.76M    FC AeroZeppelin     53   1090   20   101.3
+12   up   13   1.85M    Daniel's Spaniels   58   1086   30   101.1
+13   up   14   2.04M    Beeston FC          56   1077   19   100.7
+14   dn   12   2.11M    JLG                 48   1074   21   100.5
+15   --   15   2.37M    windsor wildlings   70   1062   16    99.5
+16   --   16   2.96M    Big Red Dog         63   1036   14    98.4
+17   --   17   3.40M    Mount Pukki         52   1016   22   102.7
+18   --   18   6.07M    Team Belgrave       34    825    2   100.5
+
+------------------------------------------------------------------
+Rank:    Current rank in league Oskana FC
+Chg.:    Movement in league compared to previous week
+PW:      Previous week rank in league
+Overall: Rank amongst all players in FPL
+GW:      Game week points
+Total:   Point sum of all game weeks
+TT:      Total transfers
+TmVal:   Team value (including bank)
+
 ```
 
 ## Requirements
 
-- Windows OS
+- Windows OS with .NET Framework
 - An email account
 - An FPL account
 - Azure subscription (optional)
