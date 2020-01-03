@@ -168,12 +168,14 @@ namespace FplBot
                 string movement = this.currentEventId > 1 ? this.CalculateTopAndBottomStandings() : string.Empty;
                 string moversShakers = this.currentEventId > 1 ? this.CalculateMoversAndShakers() : string.Empty;
                 string pointsBenched = this.CalculatePointsOnBench();
+                string autoSubs = this.CalculateAutomaticSubs();
                 string hitsTaken = this.PrintHitsTaken();
                 string chipsUsed = this.CalculateChipsUsed();
 
                 this.Output.AppendLine(topResults);
                 this.Output.AppendLine(bottomResults);
                 this.Output.AppendLine(captains);
+                this.Output.Append(autoSubs).AppendLine(pointsBenched);
 
                 if (!string.IsNullOrEmpty(movement))
                 {
@@ -187,10 +189,11 @@ namespace FplBot
                     persistence.SaveStandings(standings);
                 }
 
+                this.Output.AppendLine();
                 this.Output.AppendLine("Notable news:").AppendLine();
 
                 this.Output.Append("- ").AppendLine(averageResults);
-                this.Output.Append("- ").AppendLine(pointsBenched);
+                //this.Output.Append("- ").AppendLine(pointsBenched);
                 this.Output.Append("- ").AppendLine(hitsTaken);
                 this.Output.Append("- ").AppendLine(chipsUsed);
 
@@ -273,6 +276,17 @@ namespace FplBot
                     this.fplPicks.Add(standing.Entry, picksTask.Result);
                 }
             }
+
+            var pickedPlayers = this.fplPicks.SelectMany(p => p.Value.Picks.Select(pp => pp.Element.Value)).Distinct();
+            this.logger.Log($"Fetching detailed statistics {pickedPlayers.Count()} players...");
+            foreach (var p in pickedPlayers.AsParallel())
+            {
+                if (!this.fplPlayerSummaries.ContainsKey(p))
+                {
+                    Api.Summary.ApiSoccerPlayerSummary summary = await string.Format(this.PlayerSummaryUrI, p).GetJsonAsync<Api.Summary.ApiSoccerPlayerSummary>().ConfigureAwait(false);
+                    this.fplPlayerSummaries.Add(p, summary);
+                }
+            }
         }
 
         /// <summary>
@@ -282,11 +296,11 @@ namespace FplBot
         {
             this.lastWeekStandings = this.fplTeams
                 .OrderByDescending(t => t.Value.Current.DefaultIfEmpty(null).SingleOrDefault(e => e.Event == this.currentEventId - 1)?.TotalPoints ?? 0)
-                .ThenByDescending(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
+                .ThenBy(t => t.Value.Current.Where(e => e.Event <= this.currentEventId).Sum(e => e.EventTransfers).Value);
 
             this.currentWeekStandings = this.fplTeams
                 .OrderByDescending(t => t.Value.Current.Find(e => e.Event == this.currentEventId).TotalPoints)
-                .ThenByDescending(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
+                .ThenBy(t => t.Value.Current.Where(e => e.Event <= this.currentEventId).Sum(e => e.EventTransfers).Value);
 
             this.weeklyResults = this.fplTeams
                 .Select(team =>
@@ -308,9 +322,13 @@ namespace FplBot
                     var result = new TeamWeeklyResult()
                     {
                         Name = this.fplLeague.Standings.Results.FirstOrDefault(t => t.Entry == team.Key).EntryName, // TODO: maube we need an actual dictionary of the teams in the league, seems to not exist anymore
+                        OverallRank = history.OverallRank.Value,
                         HitsTakenCost = history.EventTransfersCost.Value,
                         ScoreBeforeHits = history.Points.Value,
                         TotalPoints = history.TotalPoints.Value,
+                        TotalTransfers = team.Value.Current.Where(e => e.Event <= this.currentEventId).Sum(e => e.EventTransfers).Value,
+                        TeamValue = history.Value.Value / 10f,
+                        GameWeekPoints = history.Points.Value,
                         ChipUsed = chip,
                         PreviousWeekPosition = calculatedLastRank,
                         CurrentWeekPosition = calculatedCurrentRank
@@ -591,6 +609,10 @@ namespace FplBot
             return result.ToString();
         }
 
+        /// <summary>
+        /// Figures out any major movements in rank for the game week
+        /// </summary>
+        /// <returns></returns>
         private string CalculateMoversAndShakers()
         {
             StringBuilder result = new StringBuilder();
@@ -605,7 +627,7 @@ namespace FplBot
                 .Where(team => team.PositionChangedSinceLastWeek == highestDrop);
 
 
-            if (highestClimbed < 2 && highestDrop < 2)
+            if (highestClimbed < 2 && highestDrop < -2)
             {
                 result.Append($"There were no significants movement on the overall standings this week.");
             }
@@ -660,21 +682,123 @@ namespace FplBot
                 }
             }
 
-            var teansWithHighest = teams
+            var teamsWithHighest = teams
                 .GroupBy(y => y.Value)
                 .OrderByDescending(y => y.Key)
                 .First()
                 .Select(a => this.fplTeams[a.Key].Name)
                 .ToList();
 
-            result.Append($"{TextUtilities.NaturalParse(teansWithHighest)} left ");
+            result.Append($"{TextUtilities.NaturalParse(teamsWithHighest)}");
+
+            if (highestPoints > 9)
+            {
+                result.Append(" will be kicking themselves after having");
+            }
+
+            result.Append(" left ");
 
             if (highestPoints > 20)
             {
                 result.Append($"{TextUtilities.GetGoodAdjective()} ");
             }
 
-            result.Append($"{highestPoints} points on the bench which was the highest in the league.");
+            result.AppendLine($"{highestPoints} points on the bench which was the highest in the league.");
+
+            return result.ToString();
+        }
+
+        private string CalculateAutomaticSubs()
+        {
+            this.logger.Log("Calculating automatic subs");
+
+            StringBuilder result = new StringBuilder();
+
+            var allPicks = this.fplPicks
+                .Where(team => team.Value.AutomaticSubs.Count() > 0)
+                .Select(team =>
+
+                new AutomaticSub()
+                {
+                    ElementInScore = team.Value.AutomaticSubs.Sum(sub => this.fplPlayerSummaries[sub.ElementIn.Value].History[this.currentEventId - 1].TotalPoints.Value),
+                    ElementInName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementIn.Value].WebName)),
+                    ElementOutName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementOut.Value].WebName)),
+                    TeamEntryId = team.Key,
+                })
+                .OrderByDescending(x => x.ElementInScore);
+            
+            var groupedPicks = allPicks
+                .GroupBy(x => x.ElementInScore)
+                .OrderByDescending(x => x.Key);
+
+            var best = groupedPicks.First();
+            var worst = groupedPicks.Last();
+
+            if (allPicks.Count() < 1)
+            {
+                result.AppendLine("No teams had automatic substitutions made this week.");
+            }
+            else
+            {
+                if (best.Count() > 1)
+                {
+                    result.Append($"Managers from {TextUtilities.NaturalParse(best.Select(i => $"{this.fplTeams[i.TeamEntryId].Name}").ToList())} did the best with automatic substitutions this week receiving");
+
+                    if (best.First().ElementInScore > 20)
+                    {
+                        result.Append($" {(TextUtilities.GetGoodAdjective())}");
+                    }
+                    else if (best.First().ElementInScore < 5)
+                    {
+                        result.Append($" {(TextUtilities.GetPoorAdjective())}");
+                    }
+
+                    result.Append($" {best.First().ElementInScore} point{TextUtilities.Pluralize((int)best.First().ElementInScore)} off the bench in liue of players not playing. ");
+                }
+                else
+                {
+                    result.Append($"This week {TextUtilities.NaturalParse(best.Select(i => $"{this.fplTeams[i.TeamEntryId].Name}").ToList())} did the best with automatic substitutions receiving");
+
+
+                    if (best.First().ElementInScore > 20)
+                    {
+                        result.Append($" {(TextUtilities.GetGoodAdjective())}");
+                    }
+                    else if (best.First().ElementInScore < 5)
+                    {
+                        result.Append($" {(TextUtilities.GetPoorAdjective())}");
+                    }
+
+                    result.Append($" {best.First().ElementInScore} point{TextUtilities.Pluralize((int)best.First().ElementInScore)} from {best.First().ElementInName} coming off the bench in liue of {best.First().ElementOutName}. ");
+
+                }
+
+                if (best.First().ElementInScore != worst.First().ElementInScore)
+                {
+                    if (worst.Count() > 2)
+                    {
+                        result.Append($"{TextUtilities.NaturalParse(worst.Select(i => $"{this.fplTeams[i.TeamEntryId].Name}").ToList())} were not as fortunate getting");
+                        
+                        if (worst.First().ElementInScore < 1)
+                        {
+                            result.Append($" {(TextUtilities.GetPoorAdjective())}");
+                        }
+
+                        result.Append($" {worst.First().ElementInScore} point{TextUtilities.Pluralize((int)worst.First().ElementInScore)} from their automatic subs. ");
+                    }
+                    else
+                    {
+                        result.Append($"{TextUtilities.NaturalParse(worst.Select(i => $"{this.fplTeams[i.TeamEntryId].Name}").ToList())} was not as fortunate getting"); 
+
+                        if (worst.First().ElementInScore < 1)
+                        {
+                            result.Append($" {(TextUtilities.GetPoorAdjective())}");
+                        }
+
+                        result.Append($" {worst.First().ElementInScore} point{TextUtilities.Pluralize((int)worst.First().ElementInScore)} from {worst.First().ElementInName} who covered for {worst.First().ElementOutName}. ");
+                    }
+                }
+            }     
 
             return result.ToString();
         }
@@ -763,20 +887,25 @@ namespace FplBot
 
             StringBuilder standings = new StringBuilder();
 
+            const int dashPadding = 49;
             int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Name.Length);
 
             standings.AppendLine($"Standings for {this.fplLeague.League.Name} after GW#{this.currentEventId}:");
-            standings.AppendLine("".PadLeft(longestTeamName + 22, '-'));
-            standings.AppendLine($"Rank Chg. LW   Team{string.Empty.PadLeft(longestTeamName - 4)}   Pts.");
-            standings.AppendLine("".PadLeft(longestTeamName + 22, '-')).AppendLine();
+            standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+            standings.AppendLine($"Rank Chg. PW   Overall  Team{string.Empty.PadLeft(longestTeamName - 4)}   GW  Total   TT   TmVal");
+            standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-')).AppendLine();
 
             foreach (var team in this.weeklyResults.OrderBy(x => x.CurrentWeekPosition))
             {
                 // if this is the first gameweek, there was no rank last week so we'll return -1 and print out -- for movement
-                string currentRank = team.CurrentWeekPosition.ToString().PadLeft(2);
-                string previousRank = this.currentEventId == 1 ? "--" : team.PreviousWeekPosition.ToString().PadLeft(2);
+                string currentRank = team.CurrentWeekPosition.ToString().PadRight(2);
+                string previousRank = this.currentEventId == 1 ? "--" : team.PreviousWeekPosition.ToString().PadRight(2);
+                string overallRank = TextUtilities.FormatRank(team.OverallRank).PadRight(6);
                 string teamName = team.Name.PadRight(longestTeamName);
                 string points = team.TotalPoints.ToString().PadLeft(4);
+                string totalTransfers = team.TotalTransfers.ToString().PadLeft(3);
+                string gameweekPoints = team.GameWeekPoints.ToString().PadLeft(2);
+                string teamValue = team.TeamValue.ToString("N1").PadLeft(5);
 
                 string movement;
 
@@ -793,8 +922,19 @@ namespace FplBot
                     movement = "up";
                 }
 
-                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {teamName}   {points}");
+                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {overallRank}   {teamName}   {gameweekPoints}   {points}  {totalTransfers}   {teamValue}");
             }
+
+            standings.AppendLine();
+            standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+            standings.AppendLine($"Rank:    Current rank in league {this.fplLeague.League.Name}");
+            standings.AppendLine("Chg.:    Movement in league compared to previous week");
+            standings.AppendLine("PW:      Previous week rank in league");
+            standings.AppendLine("Overall: Rank amongst all players in FPL");
+            standings.AppendLine("GW:      Game week points");
+            standings.AppendLine("Total:   Point sum of all game weeks");
+            standings.AppendLine("TT:      Total transfers");
+            standings.AppendLine("TmVal:   Team value (including bank)");
 
             return standings;
         }

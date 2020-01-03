@@ -147,6 +147,7 @@
     <Compile Include="Api\PlayerClasses.cs" />
     <Compile Include="Api\RootClasses.cs" />
     <Compile Include="Api\TeamClasses.cs" />
+    <Compile Include="Data\AutomaticSub.cs" />
     <Compile Include="Data\CaptainChoice.cs" />
     <Compile Include="Data\FplTeamEntry.cs" />
     <Compile Include="FplBot.cs" />
