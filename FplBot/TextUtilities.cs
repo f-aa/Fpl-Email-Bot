@@ -162,5 +162,23 @@ namespace FplBot
 
             return nouns[rng.Next(0, nouns.Count)];
         }
+
+        internal static string FormatRank(long num)
+        {
+            if (num >= 1000000)
+            {
+                return (num / 1000000D).ToString("0.00M");
+            }
+            if (num >= 100000)
+            {
+                return (num / 1000D).ToString("0.k");
+            }
+            if (num >= 10000)
+            {
+                return (num / 1000D).ToString("0.0k");
+            }
+
+            return num.ToString();
+        }
     }
 }

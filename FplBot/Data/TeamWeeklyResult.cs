@@ -8,6 +8,11 @@
         internal string Name { get; set; }
 
         /// <summary>
+        /// The overall rank of all players
+        /// </summary>
+        internal long OverallRank { get; set; }
+
+        /// <summary>
         /// Which chip was used, if any
         /// </summary>
         internal string ChipUsed { get; set; }

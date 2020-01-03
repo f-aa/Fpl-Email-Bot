@@ -282,11 +282,11 @@ namespace FplBot
         {
             this.lastWeekStandings = this.fplTeams
                 .OrderByDescending(t => t.Value.Current.DefaultIfEmpty(null).SingleOrDefault(e => e.Event == this.currentEventId - 1)?.TotalPoints ?? 0)
-                .ThenBy(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
+                .ThenBy(t => t.Value.Current.Where(e => e.Event <= this.currentEventId).Sum(e => e.EventTransfers).Value);
 
             this.currentWeekStandings = this.fplTeams
                 .OrderByDescending(t => t.Value.Current.Find(e => e.Event == this.currentEventId).TotalPoints)
-                .ThenBy(t => t.Value.Current.Sum(e => e.EventTransfers).Value);
+                .ThenBy(t => t.Value.Current.Where(e => e.Event <= this.currentEventId).Sum(e => e.EventTransfers).Value);
 
             this.weeklyResults = this.fplTeams
                 .Select(team =>
@@ -308,10 +308,11 @@ namespace FplBot
                     var result = new TeamWeeklyResult()
                     {
                         Name = this.fplLeague.Standings.Results.FirstOrDefault(t => t.Entry == team.Key).EntryName, // TODO: maube we need an actual dictionary of the teams in the league, seems to not exist anymore
+                        OverallRank = history.OverallRank.Value,
                         HitsTakenCost = history.EventTransfersCost.Value,
                         ScoreBeforeHits = history.Points.Value,
                         TotalPoints = history.TotalPoints.Value,
-                        TotalTransfers = team.Value.Current.Sum(e => e.EventTransfers).Value,
+                        TotalTransfers = team.Value.Current.Where(e => e.Event <= this.currentEventId).Sum(e => e.EventTransfers).Value,
                         TeamValue = history.Value.Value / 10f,
                         GameWeekPoints = history.Points.Value,
                         ChipUsed = chip,
@@ -766,18 +767,20 @@ namespace FplBot
 
             StringBuilder standings = new StringBuilder();
 
+            const int dashPadding = 49;
             int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Name.Length);
 
             standings.AppendLine($"Standings for {this.fplLeague.League.Name} after GW#{this.currentEventId}:");
-            standings.AppendLine("".PadLeft(longestTeamName + 37, '-'));
-            standings.AppendLine($"Rank Chg. LW   Team{string.Empty.PadLeft(longestTeamName - 4)}  GW Total   TT     TV");
-            standings.AppendLine("".PadLeft(longestTeamName + 37, '-')).AppendLine();
+            standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+            standings.AppendLine($"Rank Chg. LW   Overall  Team{string.Empty.PadLeft(longestTeamName - 4)}   GW  Total   TT   TmVal");
+            standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-')).AppendLine();
 
             foreach (var team in this.weeklyResults.OrderBy(x => x.CurrentWeekPosition))
             {
                 // if this is the first gameweek, there was no rank last week so we'll return -1 and print out -- for movement
-                string currentRank = team.CurrentWeekPosition.ToString().PadLeft(2);
-                string previousRank = this.currentEventId == 1 ? "--" : team.PreviousWeekPosition.ToString().PadLeft(2);
+                string currentRank = team.CurrentWeekPosition.ToString().PadRight(2);
+                string previousRank = this.currentEventId == 1 ? "--" : team.PreviousWeekPosition.ToString().PadRight(2);
+                string overallRank = TextUtilities.FormatRank(team.OverallRank).PadRight(6);
                 string teamName = team.Name.PadRight(longestTeamName);
                 string points = team.TotalPoints.ToString().PadLeft(4);
                 string totalTransfers = team.TotalTransfers.ToString().PadLeft(3);
@@ -799,15 +802,15 @@ namespace FplBot
                     movement = "up";
                 }
 
-                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {teamName}  {gameweekPoints}  {points}  {totalTransfers}  {teamValue}");
+                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {overallRank}   {teamName}   {gameweekPoints}   {points}  {totalTransfers}   {teamValue}");
             }
 
             standings.AppendLine();
-            standings.AppendLine("".PadLeft(longestTeamName + 37, '-'));
+            standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
             standings.AppendLine("LW: Last weeks rank");
             standings.AppendLine("GW: Game week points");
             standings.AppendLine("TT: Total transfers");
-            standings.AppendLine("TV: Team value");
+            standings.AppendLine("TmVal: Team value");
 
             return standings;
         }
