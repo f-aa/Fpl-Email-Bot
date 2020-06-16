@@ -717,14 +717,13 @@ namespace FplBot
             var allPicks = this.fplPicks
                 .Where(team => team.Value.AutomaticSubs.Count() > 0)
                 .Select(team =>
-
-                new AutomaticSub()
-                {
-                    ElementInScore = team.Value.AutomaticSubs.Sum(sub => this.fplPlayerSummaries[sub.ElementIn.Value].History[this.currentEventId - 1].TotalPoints.Value),
-                    ElementInName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementIn.Value].WebName)),
-                    ElementOutName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementOut.Value].WebName)),
-                    TeamEntryId = team.Key,
-                })
+                    new AutomaticSub()
+                    {
+                        ElementInScore = team.Value.AutomaticSubs.Sum(sub => this.fplPlayerSummaries[sub.ElementIn.Value].History.Find(x => x.Round == this.currentEventId)?.TotalPoints.Value ?? 0),
+                        ElementInName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementIn.Value].WebName)),
+                        ElementOutName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementOut.Value].WebName)),
+                        TeamEntryId = team.Key,
+                    })
                 .OrderByDescending(x => x.ElementInScore);
             
             var groupedPicks = allPicks

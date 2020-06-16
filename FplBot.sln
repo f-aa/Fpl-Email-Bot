@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27703.2026
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29926.136
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FplBot", "FplBot\FplBot.csproj", "{94B75EA6-234F-493A-BA95-0907EA2CA3A0}"
 EndProject
@@ -21,8 +21,8 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{94B75EA6-234F-493A-BA95-0907EA2CA3A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{94B75EA6-234F-493A-BA95-0907EA2CA3A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{94B75EA6-234F-493A-BA95-0907EA2CA3A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{94B75EA6-234F-493A-BA95-0907EA2CA3A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94B75EA6-234F-493A-BA95-0907EA2CA3A0}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{94B75EA6-234F-493A-BA95-0907EA2CA3A0}.Release|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
