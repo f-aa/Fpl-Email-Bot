@@ -889,11 +889,11 @@ namespace FplBot
             StringBuilder standings = new StringBuilder();
 
             const int dashPadding = 49;
-            int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Name.Length);
+            int longestTeamName = this.currentWeekStandings.Max(team => team.Value.Name.Length);
 
             standings.AppendLine($"Standings for {this.fplLeague.League.Name} after {this.currentEvent.Name}:");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
-            standings.AppendLine($"Rank Chg. PW   Overall  Team{string.Empty.PadLeft(longestTeamName - 3)}   GW  Total   TT   TmVal");
+            standings.AppendLine($"Rank Chg. PW   Overall  Team{string.Empty.PadLeft(longestTeamName - 3)}  GW  Total   TT   TmVal");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-')).AppendLine();
 
             foreach (var team in this.weeklyResults.OrderBy(x => x.CurrentWeekPosition))
@@ -923,7 +923,7 @@ namespace FplBot
                     movement = "up";
                 }
 
-                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {overallRank}   {teamName}   {gameweekPoints}   {points}  {totalTransfers}   {teamValue}");
+                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {overallRank}   {teamName}  {gameweekPoints}   {points}  {totalTransfers}   {teamValue}");
             }
 
             standings.AppendLine();
