@@ -378,7 +378,7 @@ namespace FplBot
                 result.Append("The ");
             }
 
-            result.Append($"winner{TextUtilities.Pluralize(winnerNames.Count())} for gameweek #{this.currentEventId} {TextUtilities.WasWere(winnerNames.Count())} {TextUtilities.NaturalParse(winnerNames)} with {topScore} points");
+            result.Append($"winner{TextUtilities.Pluralize(winnerNames.Count())} for {this.currentEvent.Name.ToLowerInvariant()} {TextUtilities.WasWere(winnerNames.Count())} {TextUtilities.NaturalParse(winnerNames)} with {topScore} points");
 
             if (winnerHitCost > 0 && winnerNames.Count() == 1)
             {
@@ -501,45 +501,48 @@ namespace FplBot
                 .GroupBy(c => c.EventScoreMultiplied)
                 .OrderByDescending(g => g.Key);
 
-            int noBest = groupedScores.First().Count();
-            int noWorst = groupedScores.Last().Count();
-            long bestScore = groupedScores.First().Key;
-            long worstScore = groupedScores.Last().Key;
+            int noBest = groupedScores.FirstOrDefault()?.Count() ?? 0;
+            int noWorst = groupedScores.LastOrDefault()?.Count() ?? 0;
+            long bestScore = groupedScores.FirstOrDefault()?.Key ?? 0;
+            long worstScore = groupedScores.LastOrDefault()?.Key ?? 0;
 
             List<long> bestPlayerIds = new List<long>();
             List<long> worstPlayerIds = new List<long>();
             List<long> bestTeamIds = new List<long>();
             List<long> worstTeamIds = new List<long>();
 
-            foreach (var p in groupedScores.First())
+            if (groupedScores.Count() > 0)
             {
-                if (!bestPlayerIds.Contains(p.ActivePlayerId))
+                foreach (var p in groupedScores.First())
                 {
-                    bestPlayerIds.Add(p.ActivePlayerId);
+                    if (!bestPlayerIds.Contains(p.ActivePlayerId))
+                    {
+                        bestPlayerIds.Add(p.ActivePlayerId);
+                    }
+
+                    if (!bestTeamIds.Contains(p.TeamEntryId))
+                    {
+                        bestTeamIds.Add(p.TeamEntryId);
+                    }
                 }
 
-                if (!bestTeamIds.Contains(p.TeamEntryId))
+                foreach (var p in groupedScores.Last())
                 {
-                    bestTeamIds.Add(p.TeamEntryId);
+                    if (!worstPlayerIds.Contains(p.ActivePlayerId))
+                    {
+                        worstPlayerIds.Add(p.ActivePlayerId);
+                    }
+
+                    if (!worstTeamIds.Contains(p.TeamEntryId))
+                    {
+                        worstTeamIds.Add(p.TeamEntryId);
+                    }
                 }
+
+                result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
+                result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
             }
-
-            foreach (var p in groupedScores.Last())
-            {
-                if (!worstPlayerIds.Contains(p.ActivePlayerId))
-                {
-                    worstPlayerIds.Add(p.ActivePlayerId);
-                }
-
-                if (!worstTeamIds.Contains(p.TeamEntryId))
-                {
-                    worstTeamIds.Add(p.TeamEntryId);
-                }
-            }
-
-            result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize((int)bestScore)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
-            result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
-
+            
             return result.ToString();
         }
 
@@ -716,29 +719,28 @@ namespace FplBot
             var allPicks = this.fplPicks
                 .Where(team => team.Value.AutomaticSubs.Count() > 0)
                 .Select(team =>
-
-                new AutomaticSub()
-                {
-                    ElementInScore = team.Value.AutomaticSubs.Sum(sub => this.fplPlayerSummaries[sub.ElementIn.Value].History[this.currentEventId - 1].TotalPoints.Value),
-                    ElementInName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementIn.Value].WebName)),
-                    ElementOutName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementOut.Value].WebName)),
-                    TeamEntryId = team.Key,
-                })
+                    new AutomaticSub()
+                    {
+                        ElementInScore = team.Value.AutomaticSubs.Sum(sub => this.fplPlayerSummaries[sub.ElementIn.Value].History.Find(x => x.Round == this.currentEventId)?.TotalPoints.Value ?? 0),
+                        ElementInName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementIn.Value].WebName)),
+                        ElementOutName = TextUtilities.NaturalParse(team.Value.AutomaticSubs.Select(sub => this.soccerPlayers[sub.ElementOut.Value].WebName)),
+                        TeamEntryId = team.Key,
+                    })
                 .OrderByDescending(x => x.ElementInScore);
             
             var groupedPicks = allPicks
                 .GroupBy(x => x.ElementInScore)
                 .OrderByDescending(x => x.Key);
 
-            var best = groupedPicks.First();
-            var worst = groupedPicks.Last();
-
             if (allPicks.Count() < 1)
             {
-                result.AppendLine("No teams had automatic substitutions made this week.");
+                result.Append("No teams had automatic substitutions made this week. ");
             }
             else
             {
+                var best = groupedPicks.First();
+                var worst = groupedPicks.Last();
+
                 if (best.Count() > 1)
                 {
                     result.Append($"Managers from {TextUtilities.NaturalParse(best.Select(i => $"{this.fplTeams[i.TeamEntryId].Name}").ToList())} did the best with automatic substitutions this week receiving");
@@ -889,7 +891,7 @@ namespace FplBot
             const int dashPadding = 49;
             int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Name.Length);
 
-            standings.AppendLine($"Standings for {this.fplLeague.League.Name} after GW#{this.currentEventId}:");
+            standings.AppendLine($"Standings for {this.fplLeague.League.Name} after {this.currentEvent.Name}:");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
             standings.AppendLine($"Rank Chg. PW   Overall  Team{string.Empty.PadLeft(longestTeamName - 3)}   GW  Total   TT   TmVal");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-')).AppendLine();
@@ -967,7 +969,7 @@ namespace FplBot
                         Content = new MimeContent(stream, ContentEncoding.Default),
                         ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
                         ContentTransferEncoding = ContentEncoding.Base64,
-                        FileName = Path.GetFileName($"Standings-GW{this.currentEventId.ToString()}.txt")
+                        FileName = Path.GetFileName($"Standings-{this.currentEvent.Name.Replace(" ", "")}.txt")
                     };
 
                     multipart.Add(attachment);
