@@ -193,7 +193,6 @@ namespace FplBot
                 this.Output.AppendLine("Notable news:").AppendLine();
 
                 this.Output.Append("- ").AppendLine(averageResults);
-                //this.Output.Append("- ").AppendLine(pointsBenched);
                 this.Output.Append("- ").AppendLine(hitsTaken);
                 this.Output.Append("- ").AppendLine(chipsUsed);
 
@@ -538,7 +537,7 @@ namespace FplBot
                 }
             }
 
-            result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
+            result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize((int)bestScore)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
             result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
 
             return result.ToString();
@@ -892,7 +891,7 @@ namespace FplBot
 
             standings.AppendLine($"Standings for {this.fplLeague.League.Name} after GW#{this.currentEventId}:");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
-            standings.AppendLine($"Rank Chg. PW   Overall  Team{string.Empty.PadLeft(longestTeamName - 4)}   GW  Total   TT   TmVal");
+            standings.AppendLine($"Rank Chg. PW   Overall  Team{string.Empty.PadLeft(longestTeamName - 3)}   GW  Total   TT   TmVal");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-')).AppendLine();
 
             foreach (var team in this.weeklyResults.OrderBy(x => x.CurrentWeekPosition))
@@ -904,7 +903,7 @@ namespace FplBot
                 string teamName = team.Name.PadRight(longestTeamName);
                 string points = team.TotalPoints.ToString().PadLeft(4);
                 string totalTransfers = team.TotalTransfers.ToString().PadLeft(3);
-                string gameweekPoints = team.GameWeekPoints.ToString().PadLeft(2);
+                string gameweekPoints = team.GameWeekPoints.ToString().PadLeft(3);
                 string teamValue = team.TeamValue.ToString("N1").PadLeft(5);
 
                 string movement;
