@@ -172,6 +172,8 @@ namespace FplBot
                 string hitsTaken = this.PrintHitsTaken();
                 string chipsUsed = this.CalculateChipsUsed();
 
+                this.GenerateTotalWeeklyWins(); // TODO: deal with output
+
                 this.Output.AppendLine(topResults);
                 this.Output.AppendLine(bottomResults);
                 this.Output.AppendLine(captains);
@@ -198,8 +200,7 @@ namespace FplBot
 
                 this.Output.AppendLine().AppendLine("Your friendly FPL bot will return next gameweek with another update.");
 
-
-                if(!this.SendEmail())
+                if (!this.SendEmail())
                 {
                     this.logger.Log("FPL Bot failed to send email. Terminating application.");
                     Environment.Exit(-1);
@@ -320,7 +321,7 @@ namespace FplBot
 
                     var result = new TeamWeeklyResult()
                     {
-                        Name = this.fplLeague.Standings.Results.FirstOrDefault(t => t.Entry == team.Key).EntryName, // TODO: maube we need an actual dictionary of the teams in the league, seems to not exist anymore
+                        Name = this.fplTeams[team.Key].Name,
                         OverallRank = history.OverallRank.Value,
                         HitsTakenCost = history.EventTransfersCost.Value,
                         ScoreBeforeHits = history.Points.Value,
@@ -938,6 +939,89 @@ namespace FplBot
             standings.AppendLine("TmVal:   Team value (including bank)");
 
             return standings;
+        }
+
+        private StringBuilder GenerateTotalWeeklyWins()
+        {
+            this.logger.Log("Calculating total weekly wins...");
+            StringBuilder result = new StringBuilder();
+
+            const int dashPadding = 49;
+            int longestTeamName = this.currentWeekStandings.Max(team => team.Value.Name.Length);
+            int skippedCoronaWeeks = 0;
+
+            result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+            result.AppendLine($"Team{string.Empty.PadLeft(longestTeamName - 3)}  Wins  Lone  Shr.   Gameweek(s)");
+            result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+
+            for (int index = 1; index <= this.currentEventId; index++)
+            {
+                var weeklyResult = this.fplTeams
+                    .Where(t => t.Value.Current.Any(te => te.Event == index))
+                    .Select(
+                        team =>
+                        {
+                            Api.Team.ApiFplTeamEvents history = team.Value.Current.Find(e => e.Event == index);
+
+                            var teamResult = new TeamWeeklyResult()
+                            {
+                                Id = team.Key,
+                                Name = this.fplTeams[team.Key].Name,
+                                HitsTakenCost = history.EventTransfersCost.Value,
+                                ScoreBeforeHits = history.Points.Value,
+                            };
+
+                            return teamResult;
+                        })
+                    .OrderByDescending(x => x.Points);
+
+                long topScore = weeklyResult.Max(t => t.Points);
+
+                if (topScore == 0)
+                {
+                    // Top score of 0 probably means everyone is in quarantine
+                    skippedCoronaWeeks++;
+                    continue;
+                }
+
+                IEnumerable<TeamWeeklyResult> winners = weeklyResult
+                    .Where(x => x.Points == topScore)
+                    .ToList();
+
+                this.logger.Log($"{this.fplRoot.Events.Find(x => x.Id == index).Name} winner was: {TextUtilities.NaturalParse(winners.Select(r => r.Name))}");
+
+                foreach (var winner in winners)
+                {
+                    this.fplTeams[winner.Id].TotalWeeklyWins += 1f / (float)winners.Count();
+                    this.fplTeams[winner.Id].WinWeeks.Add(index > 38 ? $"{(index - skippedCoronaWeeks).ToString()}+" : index.ToString());
+
+                    if (winners.Count() > 1)
+                    {
+                        this.fplTeams[winner.Id].TotalWeeklySharedWins++;
+                    }
+                    else
+                    {
+                        this.fplTeams[winner.Id].TotalWeeklySingleWins++;
+                    }                    
+                }
+            }
+
+            foreach (var team in this.fplTeams.OrderByDescending(x => x.Value.TotalWeeklySingleWins).ThenByDescending(x => x.Value.TotalWeeklySharedWins))
+            {
+                string teamName = team.Value.Name.PadRight(longestTeamName);
+                string wins = team.Value.TotalWeeklyWins.ToString().PadLeft(4);
+                string singleWins = team.Value.TotalWeeklySingleWins.ToString().PadLeft(2);
+                string sharedWins = team.Value.TotalWeeklySharedWins.ToString().PadLeft(2);
+                string weeks = team.Value.WinWeeks.Count() > 0 ? team.Value.WinWeeks.Aggregate((x, y) => $"{x.ToString()}, {y}") : string.Empty;
+
+                result.AppendLine($"{teamName}   {wins}    {singleWins}    {sharedWins}   {weeks}");
+            }
+
+            result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+
+            this.logger.Log(result.ToString());
+
+            return new StringBuilder();
         }
 
         /// <summary>

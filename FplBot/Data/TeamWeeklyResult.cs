@@ -2,6 +2,8 @@
 {
     internal struct TeamWeeklyResult
     {
+        internal long Id { get; set; }
+
         /// <summary>
         /// Name of the team
         /// </summary>
