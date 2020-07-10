@@ -1053,7 +1053,7 @@ namespace FplBot
                         Content = new MimeContent(stream, ContentEncoding.Default),
                         ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
                         ContentTransferEncoding = ContentEncoding.Base64,
-                        FileName = Path.GetFileName($"Standings-{this.currentEvent.Name.Replace(" ", "")}.txt")
+                        FileName = Path.GetFileName($"Standings-{this.currentEvent.Name.Replace(" ", "").Replace("+", "plus")}.txt")
                     };
 
                     multipart.Add(attachment);
