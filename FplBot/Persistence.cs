@@ -14,18 +14,21 @@ namespace FplBot
     /// </summary>
     internal class Persistence
     {
-        private const string GAMEWEEK_FILENAME = "gameweek.txt";    // The name of the textfile to persist gameweek
-        private const string STANDINGS_FILENAME = "standings.txt";  // The name of the textfile to persist weekly total standings
+        private const string GAMEWEEK_FILENAME = "gameweek.txt";        // The name of the textfile to persist gameweek
+        private const string STANDINGS_FILENAME = "standings.txt";      // The name of the textfile to persist total standings
+        private const string WEEKLY_WINS_FILENAME = "weeklywins.txt";   // The name of the text file to persist weekly wins
 
         private readonly ILogger logger;
         private readonly bool useAzure = false;
         private readonly string basePath;
         private readonly string gameweekPath;
         private readonly string standingsPath;
+        private readonly string weeklyWinsPath;
         private readonly string blobStorageName;
 
         private CloudBlockBlob gameweekBlob;
         private CloudBlockBlob standingsBlob;
+        private CloudBlockBlob weeklyWinsBlob;
         private int gameweek;
 
         /// <summary>
@@ -41,6 +44,7 @@ namespace FplBot
             this.basePath = AppDomain.CurrentDomain.BaseDirectory;
             this.gameweekPath = $"{basePath}\\{GAMEWEEK_FILENAME}";
             this.standingsPath = $"{basePath}\\{STANDINGS_FILENAME}";
+            this.weeklyWinsPath = $"{basePath}\\{WEEKLY_WINS_FILENAME}";
             this.gameweek = 1; // default
 
             if (useAzure && string.IsNullOrWhiteSpace(blobStorageName))
@@ -66,17 +70,23 @@ namespace FplBot
 
                 this.gameweekBlob = container.GetBlockBlobReference(GAMEWEEK_FILENAME);
                 this.standingsBlob = container.GetBlockBlobReference(STANDINGS_FILENAME);
+                this.weeklyWinsBlob = container.GetBlockBlobReference(WEEKLY_WINS_FILENAME);
 
                 this.logger.Log($"Attempting to store gameweek data to: {container.Uri}");
 
                 if (!gameweekBlob.Exists())
                 {
-                    this.gameweekBlob.UploadText(this.gameweek.ToString());  // Create a file if it doesn't exist already
+                    this.gameweekBlob.UploadText(this.gameweek.ToString()); // Create a file if it doesn't exist already
                 }
 
                 if (!standingsBlob.Exists())
                 {
-                    this.standingsBlob.UploadText(string.Empty);  // Create a file if it doesn't exist already
+                    this.standingsBlob.UploadText(string.Empty);            // Create a file if it doesn't exist already
+                }
+
+                if (!weeklyWinsBlob.Exists())
+                {
+                    this.weeklyWinsBlob.UploadText(string.Empty);           // Create a file if it doesn't exist already
                 }
             }
             else
@@ -127,7 +137,7 @@ namespace FplBot
         /// <returns>A stream with the current standings</returns>
         internal Stream GetStandingsStream()
         {
-            this.logger.Log("Loading weekly standings from persistent storage");
+            this.logger.Log("Loading standings from persistent storage");
 
             if (this.useAzure)
             {
@@ -149,7 +159,7 @@ namespace FplBot
         {
             if (result == null) return;
 
-            this.logger.Log("Saving weekly standings to persistent storage");
+            this.logger.Log("Saving standings to persistent storage");
 
             if (this.useAzure)
             {
@@ -158,6 +168,46 @@ namespace FplBot
             else
             {
                 File.WriteAllText(this.standingsPath, result.ToString());
+            }
+        }
+
+        /// <summary>
+        /// Gets the current weekly wins as a stream
+        /// </summary>
+        /// <returns>A stream with the all the weekly wins</returns>
+        internal Stream GetWeeklyWinsStream()
+        {
+            this.logger.Log("Loading weekly wins from persistent storage");
+
+            if (this.useAzure)
+            {
+                Stream stream = new MemoryStream();
+                this.weeklyWinsBlob.DownloadToStream(stream);
+                return stream;
+            }
+            else
+            {
+                return File.OpenRead(this.weeklyWinsPath);
+            }
+        }
+
+        /// <summary>
+        /// Saves the current weekly wins to persistent storage
+        /// </summary>
+        /// <param name="result"></param>
+        internal void SaveWeeklyWins(StringBuilder result)
+        {
+            if (result == null) return;
+
+            this.logger.Log("Saving weekly wins to persistent storage");
+
+            if(this.useAzure)
+            {
+                this.weeklyWinsBlob.UploadText(result.ToString());
+            }
+            else
+            {
+                File.WriteAllText(this.weeklyWinsPath, result.ToString());
             }
         }
     }

@@ -36,6 +36,7 @@ namespace FplBot
 
         private readonly long leagueId;
         private readonly bool attachTable;
+        private readonly bool attachWeeklyWins;
         private readonly string emailUser;
         private readonly string emailPassword;
         private readonly string emailFrom;
@@ -70,11 +71,13 @@ namespace FplBot
 
             string fplUsername = string.Empty;
             string fplPassword = string.Empty;
+
             try
             {
                 this.logger.Log("Loading configuration file");
 
                 this.attachTable = bool.Parse(ConfigurationManager.AppSettings["attachTable"]);
+                this.attachWeeklyWins = bool.Parse(ConfigurationManager.AppSettings["attachWeeklyWins"]);
                 this.leagueId = long.Parse(ConfigurationManager.AppSettings["leagueId"]);
                 this.emailUser = ConfigurationManager.AppSettings["emailUser"];
                 this.emailPassword = ConfigurationManager.AppSettings["emailPassword"];
@@ -172,8 +175,6 @@ namespace FplBot
                 string hitsTaken = this.PrintHitsTaken();
                 string chipsUsed = this.CalculateChipsUsed();
 
-                this.GenerateTotalWeeklyWins(); // TODO: deal with output
-
                 this.Output.AppendLine(topResults);
                 this.Output.AppendLine(bottomResults);
                 this.Output.AppendLine(captains);
@@ -189,6 +190,12 @@ namespace FplBot
                 {
                     StringBuilder standings = this.GenerateStandingsTable();
                     persistence.SaveStandings(standings);
+                }
+
+                if (this.attachWeeklyWins)
+                {
+                    StringBuilder weeklyWins = this.GenerateTotalWeeklyWins();
+                    persistence.SaveWeeklyWins(weeklyWins);
                 }
 
                 this.Output.AppendLine();
@@ -941,6 +948,10 @@ namespace FplBot
             return standings;
         }
 
+        /// <summary>
+        /// Generates the total weekly wins everyone has had
+        /// </summary>
+        /// <returns></returns>
         private StringBuilder GenerateTotalWeeklyWins()
         {
             this.logger.Log("Calculating total weekly wins...");
@@ -1019,9 +1030,7 @@ namespace FplBot
 
             result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
 
-            this.logger.Log(result.ToString());
-
-            return new StringBuilder();
+            return result;
         }
 
         /// <summary>
@@ -1033,7 +1042,8 @@ namespace FplBot
         {
             this.logger.Log("Attempting to send email...");
 
-            Stream stream = null;
+            Stream standingsStream = null;
+            Stream weeklyWinsStream = null;
 
             try
             {
@@ -1046,14 +1056,29 @@ namespace FplBot
 
                 if (this.attachTable)
                 {
-                    stream = persistence.GetStandingsStream();
+                    standingsStream = persistence.GetStandingsStream();
 
                     MimePart attachment = new MimePart("plain", "txt")
                     {
-                        Content = new MimeContent(stream, ContentEncoding.Default),
+                        Content = new MimeContent(standingsStream, ContentEncoding.Default),
                         ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
                         ContentTransferEncoding = ContentEncoding.Base64,
                         FileName = Path.GetFileName($"Standings-{this.currentEvent.Name.Replace(" ", "").Replace("+", "plus")}.txt")
+                    };
+
+                    multipart.Add(attachment);
+                }
+
+                if (this.attachWeeklyWins)
+                {
+                    weeklyWinsStream = persistence.GetWeeklyWinsStream();
+
+                    MimePart attachment = new MimePart("plain", "txt")
+                    {
+                        Content = new MimeContent(weeklyWinsStream, ContentEncoding.Default),
+                        ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                        ContentTransferEncoding = ContentEncoding.Base64,
+                        FileName = Path.GetFileName($"WeeklyWinSummary-{this.currentEvent.Name.Replace(" ", "").Replace("+", "plus")}.txt")
                     };
 
                     multipart.Add(attachment);
@@ -1090,9 +1115,14 @@ namespace FplBot
             }
             finally
             {
-                if (stream != null)
+                if (standingsStream != null)
                 {
-                    stream.Dispose();
+                    standingsStream.Dispose();
+                }
+
+                if (weeklyWinsStream != null)
+                {
+                    weeklyWinsStream.Dispose();
                 }
             }
 
