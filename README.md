@@ -71,10 +71,9 @@ TmVal:   Team value (including bank)
 
 ## Requirements
 
-- Windows OS with .NET Framework
+- Windows OS with .NET Framework 4.7.1 or an Azure subscription
 - An email account
 - An FPL account
-- Azure subscription (optional)
 
 ## Setup
 
