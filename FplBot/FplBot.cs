@@ -36,6 +36,7 @@ namespace FplBot
 
         private readonly long leagueId;
         private readonly bool attachTable;
+        private readonly bool attachWeeklyWins;
         private readonly string emailUser;
         private readonly string emailPassword;
         private readonly string emailFrom;
@@ -70,11 +71,13 @@ namespace FplBot
 
             string fplUsername = string.Empty;
             string fplPassword = string.Empty;
+
             try
             {
                 this.logger.Log("Loading configuration file");
 
                 this.attachTable = bool.Parse(ConfigurationManager.AppSettings["attachTable"]);
+                this.attachWeeklyWins = bool.Parse(ConfigurationManager.AppSettings["attachWeeklyWins"]);
                 this.leagueId = long.Parse(ConfigurationManager.AppSettings["leagueId"]);
                 this.emailUser = ConfigurationManager.AppSettings["emailUser"];
                 this.emailPassword = ConfigurationManager.AppSettings["emailPassword"];
@@ -189,18 +192,22 @@ namespace FplBot
                     persistence.SaveStandings(standings);
                 }
 
+                if (this.attachWeeklyWins)
+                {
+                    StringBuilder weeklyWins = this.GenerateTotalWeeklyWins();
+                    persistence.SaveWeeklyWins(weeklyWins);
+                }
+
                 this.Output.AppendLine();
                 this.Output.AppendLine("Notable news:").AppendLine();
 
                 this.Output.Append("- ").AppendLine(averageResults);
-                //this.Output.Append("- ").AppendLine(pointsBenched);
                 this.Output.Append("- ").AppendLine(hitsTaken);
                 this.Output.Append("- ").AppendLine(chipsUsed);
 
                 this.Output.AppendLine().AppendLine("Your friendly FPL bot will return next gameweek with another update.");
 
-
-                if(!this.SendEmail())
+                if (!this.SendEmail())
                 {
                     this.logger.Log("FPL Bot failed to send email. Terminating application.");
                     Environment.Exit(-1);
@@ -213,7 +220,7 @@ namespace FplBot
             }
             else if (!(this.currentEvent.Finished.Value && this.currentEvent.DataChecked.Value))
             {
-                this.logger.Log("Gameweek has not completed yet.");
+                this.logger.Log($"{this.currentEvent.Name} has not completed yet.");
             }
         }
 
@@ -321,7 +328,7 @@ namespace FplBot
 
                     var result = new TeamWeeklyResult()
                     {
-                        Name = this.fplLeague.Standings.Results.FirstOrDefault(t => t.Entry == team.Key).EntryName, // TODO: maube we need an actual dictionary of the teams in the league, seems to not exist anymore
+                        Name = this.fplTeams[team.Key].Name,
                         OverallRank = history.OverallRank.Value,
                         HitsTakenCost = history.EventTransfersCost.Value,
                         ScoreBeforeHits = history.Points.Value,
@@ -540,7 +547,7 @@ namespace FplBot
                     }
                 }
 
-                result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
+                result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize((int)bestScore)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
                 result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
             }
             
@@ -890,11 +897,11 @@ namespace FplBot
             StringBuilder standings = new StringBuilder();
 
             const int dashPadding = 49;
-            int longestTeamName = this.currentWeekStandings.Max(x => x.Value.Name.Length);
+            int longestTeamName = this.currentWeekStandings.Max(team => team.Value.Name.Length);
 
             standings.AppendLine($"Standings for {this.fplLeague.League.Name} after {this.currentEvent.Name}:");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
-            standings.AppendLine($"Rank Chg. PW   Overall  Team{string.Empty.PadLeft(longestTeamName - 4)}   GW  Total   TT   TmVal");
+            standings.AppendLine($"Rank Chg. PW   Overall  Team{string.Empty.PadLeft(longestTeamName - 3)}  GW  Total   TT   TmVal");
             standings.AppendLine("".PadLeft(longestTeamName + dashPadding, '-')).AppendLine();
 
             foreach (var team in this.weeklyResults.OrderBy(x => x.CurrentWeekPosition))
@@ -906,7 +913,7 @@ namespace FplBot
                 string teamName = team.Name.PadRight(longestTeamName);
                 string points = team.TotalPoints.ToString().PadLeft(4);
                 string totalTransfers = team.TotalTransfers.ToString().PadLeft(3);
-                string gameweekPoints = team.GameWeekPoints.ToString().PadLeft(2);
+                string gameweekPoints = team.GameWeekPoints.ToString().PadLeft(3);
                 string teamValue = team.TeamValue.ToString("N1").PadLeft(5);
 
                 string movement;
@@ -924,7 +931,7 @@ namespace FplBot
                     movement = "up";
                 }
 
-                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {overallRank}   {teamName}   {gameweekPoints}   {points}  {totalTransfers}   {teamValue}");
+                standings.AppendLine($"{currentRank}   {movement}   {previousRank}   {overallRank}   {teamName}  {gameweekPoints}   {points}  {totalTransfers}   {teamValue}");
             }
 
             standings.AppendLine();
@@ -942,6 +949,110 @@ namespace FplBot
         }
 
         /// <summary>
+        /// Generates the total weekly wins everyone has had
+        /// </summary>
+        /// <returns></returns>
+        private StringBuilder GenerateTotalWeeklyWins()
+        {
+            this.logger.Log("Calculating total weekly wins...");
+            StringBuilder result = new StringBuilder();
+
+            const int dashPadding = 53;
+            int longestTeamName = this.currentWeekStandings.Max(team => team.Value.Name.Length);
+            int skippedCoronaWeeks = 0;
+
+            result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+            result.AppendLine($"Team{string.Empty.PadLeft(longestTeamName - 3)}  EffW  Excl  Shrd   wDDR   Gameweek win(s)");
+            result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+
+            for (int index = 1; index <= this.currentEventId; index++)
+            {
+                var weeklyResult = this.fplTeams
+                    .Where(t => t.Value.Current.Any(te => te.Event == index))
+                    .Select(
+                        team =>
+                        {
+                            Api.Team.ApiFplTeamEvents history = team.Value.Current.Find(e => e.Event == index);
+
+                            var teamResult = new TeamWeeklyResult()
+                            {
+                                Id = team.Key,
+                                Name = this.fplTeams[team.Key].Name,
+                                HitsTakenCost = history.EventTransfersCost.Value,
+                                ScoreBeforeHits = history.Points.Value,
+                            };
+
+                            return teamResult;
+                        })
+                    .OrderByDescending(x => x.Points);
+
+                long topScore = weeklyResult.Max(t => t.Points);
+                long topBeforeHits = weeklyResult.Max(t => t.ScoreBeforeHits);
+
+                if (topScore == 0)
+                {
+                    // Top score of 0 probably means everyone is in quarantine
+                    skippedCoronaWeeks++;
+                    continue;
+                }
+
+                IEnumerable<TeamWeeklyResult> winners = weeklyResult
+                    .Where(x => x.Points == topScore)
+                    .ToList();
+
+                IEnumerable<TeamWeeklyResult> foiledTeams = weeklyResult
+                    .Where(X => topBeforeHits >= topScore)                 // Bail out if there weren't any teams with score high enough to trigger DDR
+                    .Where(x => x.HitsTakenCost > 0)                       // Filter out any teams that didn't take any hits
+                    .Where(x => x.ScoreBeforeHits == topBeforeHits)        // Find the player(s) that had the top score before hits were taken
+                    .Where(x => x.Points < topScore)                       // Make sure the score was lower than topScore, otherwise they won the week despite DDR
+                    .ToList();
+
+                foreach (var winner in winners)
+                {
+                    this.fplTeams[winner.Id].TotalWeeklyWins += 1f / (float)winners.Count();
+                    this.fplTeams[winner.Id].WinWeeks.Add(index > 38 ? $"{(index - skippedCoronaWeeks).ToString()}+" : index.ToString());
+
+                    if (winners.Count() > 1)
+                    {
+                        this.fplTeams[winner.Id].TotalWeeklySharedWins++;
+                    }
+                    else
+                    {
+                        this.fplTeams[winner.Id].TotalWeeklySingleWins++;
+                    }
+                }
+
+                foreach (var foiledTeam in foiledTeams)
+                {
+                    this.fplTeams[foiledTeam.Id].FoiledByDanDaviesRule++;
+                }
+            }
+
+            foreach (var team in this.fplTeams.OrderByDescending(x => x.Value.TotalWeeklySingleWins).ThenByDescending(x => x.Value.TotalWeeklySharedWins))
+            {
+                string teamName = team.Value.Name.PadRight(longestTeamName);
+                string wins = team.Value.TotalWeeklyWins.ToString("0.##").PadLeft(4);
+                string singleWins = team.Value.TotalWeeklySingleWins.ToString().PadLeft(2);
+                string sharedWins = team.Value.TotalWeeklySharedWins.ToString().PadLeft(2);
+                string foiledByDanDaviesRule = team.Value.FoiledByDanDaviesRule.ToString().PadLeft(2);
+                string weeks = team.Value.WinWeeks.Count() > 0 ? team.Value.WinWeeks.Aggregate((x, y) => $"{x.ToString()}, {y}") : string.Empty;
+
+                result.AppendLine($"{teamName}   {wins}    {singleWins}    {sharedWins}     {foiledByDanDaviesRule}   {weeks}");
+            }
+
+            result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+
+            result.AppendLine("EffW: Effective wins");
+            result.AppendLine("Excl: # of time team won a gameweek exclusively");
+            result.AppendLine("Shrd: # of shared wins of a gameweek ");
+            result.AppendLine("wDDR: # of times a team would have won if not for the Dan Davies Rule");
+
+            this.logger.Log(result.ToString());
+
+            return result;
+        }
+
+        /// <summary>
         /// Sends an email to participants in the league
         /// </summary>
         /// <param name="result"></param>
@@ -950,7 +1061,8 @@ namespace FplBot
         {
             this.logger.Log("Attempting to send email...");
 
-            Stream stream = null;
+            Stream standingsStream = null;
+            Stream weeklyWinsStream = null;
 
             try
             {
@@ -963,14 +1075,29 @@ namespace FplBot
 
                 if (this.attachTable)
                 {
-                    stream = persistence.GetStandingsStream();
+                    standingsStream = persistence.GetStandingsStream();
 
                     MimePart attachment = new MimePart("plain", "txt")
                     {
-                        Content = new MimeContent(stream, ContentEncoding.Default),
+                        Content = new MimeContent(standingsStream, ContentEncoding.Default),
                         ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
                         ContentTransferEncoding = ContentEncoding.Base64,
-                        FileName = Path.GetFileName($"Standings-{this.currentEvent.Name.Replace(" ", "")}.txt")
+                        FileName = Path.GetFileName($"Standings-{this.currentEvent.Name.Replace(" ", "").Replace("+", "plus")}.txt")
+                    };
+
+                    multipart.Add(attachment);
+                }
+
+                if (this.attachWeeklyWins)
+                {
+                    weeklyWinsStream = persistence.GetWeeklyWinsStream();
+
+                    MimePart attachment = new MimePart("plain", "txt")
+                    {
+                        Content = new MimeContent(weeklyWinsStream, ContentEncoding.Default),
+                        ContentDisposition = new ContentDisposition(ContentDisposition.Attachment),
+                        ContentTransferEncoding = ContentEncoding.Base64,
+                        FileName = Path.GetFileName($"WeeklyWinSummary-{this.currentEvent.Name.Replace(" ", "").Replace("+", "plus")}.txt")
                     };
 
                     multipart.Add(attachment);
@@ -1007,9 +1134,14 @@ namespace FplBot
             }
             finally
             {
-                if (stream != null)
+                if (standingsStream != null)
                 {
-                    stream.Dispose();
+                    standingsStream.Dispose();
+                }
+
+                if (weeklyWinsStream != null)
+                {
+                    weeklyWinsStream.Dispose();
                 }
             }
 
