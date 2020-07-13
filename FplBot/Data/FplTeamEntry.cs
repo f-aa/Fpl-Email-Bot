@@ -19,6 +19,8 @@ namespace FplBot.Data
 
         public int TotalWeeklySharedWins { get; set; }
 
+        public int FoiledByDanDaviesRule { get; set; }
+
         public float TotalWeeklyWins { get; set; }
 
         public List<string> WinWeeks = new List<string>();

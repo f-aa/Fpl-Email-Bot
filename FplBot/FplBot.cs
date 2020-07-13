@@ -220,7 +220,7 @@ namespace FplBot
             }
             else if (!(this.currentEvent.Finished.Value && this.currentEvent.DataChecked.Value))
             {
-                this.logger.Log("Gameweek has not completed yet.");
+                this.logger.Log($"{this.currentEvent.Name} has not completed yet.");
             }
         }
 
@@ -547,7 +547,7 @@ namespace FplBot
                     }
                 }
 
-                result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize(noBest)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
+                result.Append($"When it came to captaincy choice{TextUtilities.Pluralize(noBest)} {TextUtilities.NaturalParse(bestTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} did the best this week with {bestScore} point{TextUtilities.Pluralize((int)bestScore)} from {TextUtilities.NaturalParse(bestPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())}. ");
                 result.AppendLine($"On the other end of the spectrum were {TextUtilities.NaturalParse(worstTeamIds.Select(i => $"{this.fplTeams[i].Name}").ToList())} who had picked {TextUtilities.NaturalParse(worstPlayerIds.Select(i => $"{this.soccerPlayers[i].FirstName} {this.soccerPlayers[i].SecondName}").ToList())} for a total of {worstScore} point{TextUtilities.Pluralize((int)worstScore)}. You receive the armband of shame for this week. ");
             }
             
@@ -957,12 +957,12 @@ namespace FplBot
             this.logger.Log("Calculating total weekly wins...");
             StringBuilder result = new StringBuilder();
 
-            const int dashPadding = 49;
+            const int dashPadding = 53;
             int longestTeamName = this.currentWeekStandings.Max(team => team.Value.Name.Length);
             int skippedCoronaWeeks = 0;
 
             result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
-            result.AppendLine($"Team{string.Empty.PadLeft(longestTeamName - 3)}  Wins  Lone  Shr.   Gameweek(s)");
+            result.AppendLine($"Team{string.Empty.PadLeft(longestTeamName - 3)}  EffW  Excl  Shrd   wDDR   Gameweek win(s)");
             result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
 
             for (int index = 1; index <= this.currentEventId; index++)
@@ -987,6 +987,7 @@ namespace FplBot
                     .OrderByDescending(x => x.Points);
 
                 long topScore = weeklyResult.Max(t => t.Points);
+                long topBeforeHits = weeklyResult.Max(t => t.ScoreBeforeHits);
 
                 if (topScore == 0)
                 {
@@ -999,7 +1000,12 @@ namespace FplBot
                     .Where(x => x.Points == topScore)
                     .ToList();
 
-                this.logger.Log($"{this.fplRoot.Events.Find(x => x.Id == index).Name} winner was: {TextUtilities.NaturalParse(winners.Select(r => r.Name))}");
+                IEnumerable<TeamWeeklyResult> foiledTeams = weeklyResult
+                    .Where(X => topBeforeHits >= topScore)                 // Bail out if there weren't any teams with score high enough to trigger DDR
+                    .Where(x => x.HitsTakenCost > 0)                       // Filter out any teams that didn't take any hits
+                    .Where(x => x.ScoreBeforeHits == topBeforeHits)        // Find the player(s) that had the top score before hits were taken
+                    .Where(x => x.Points < topScore)                       // Make sure the score was lower than topScore, otherwise they won the week despite DDR
+                    .ToList();
 
                 foreach (var winner in winners)
                 {
@@ -1013,22 +1019,35 @@ namespace FplBot
                     else
                     {
                         this.fplTeams[winner.Id].TotalWeeklySingleWins++;
-                    }                    
+                    }
+                }
+
+                foreach (var foiledTeam in foiledTeams)
+                {
+                    this.fplTeams[foiledTeam.Id].FoiledByDanDaviesRule++;
                 }
             }
 
             foreach (var team in this.fplTeams.OrderByDescending(x => x.Value.TotalWeeklySingleWins).ThenByDescending(x => x.Value.TotalWeeklySharedWins))
             {
                 string teamName = team.Value.Name.PadRight(longestTeamName);
-                string wins = team.Value.TotalWeeklyWins.ToString().PadLeft(4);
+                string wins = team.Value.TotalWeeklyWins.ToString("0.##").PadLeft(4);
                 string singleWins = team.Value.TotalWeeklySingleWins.ToString().PadLeft(2);
                 string sharedWins = team.Value.TotalWeeklySharedWins.ToString().PadLeft(2);
+                string foiledByDanDaviesRule = team.Value.FoiledByDanDaviesRule.ToString().PadLeft(2);
                 string weeks = team.Value.WinWeeks.Count() > 0 ? team.Value.WinWeeks.Aggregate((x, y) => $"{x.ToString()}, {y}") : string.Empty;
 
-                result.AppendLine($"{teamName}   {wins}    {singleWins}    {sharedWins}   {weeks}");
+                result.AppendLine($"{teamName}   {wins}    {singleWins}    {sharedWins}     {foiledByDanDaviesRule}   {weeks}");
             }
 
             result.AppendLine("".PadLeft(longestTeamName + dashPadding, '-'));
+
+            result.AppendLine("EffW: Effective wins");
+            result.AppendLine("Excl: # of time team won a gameweek exclusively");
+            result.AppendLine("Shrd: # of shared wins of a gameweek ");
+            result.AppendLine("wDDR: # of times a team would have won if not for the Dan Davies Rule");
+
+            this.logger.Log(result.ToString());
 
             return result;
         }
