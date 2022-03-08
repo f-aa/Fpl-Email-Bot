@@ -243,9 +243,9 @@ namespace FplBot
 
             try
             {
-                var cookie = await this.authentication.GetCookie();
+                // var cookie = await this.authentication.GetCookie();
                 this.fplLeague = await string.Format(this.LeagueStandingsUri, this.leagueId)
-                    .WithCookie(cookie)
+                    // .WithCookie(cookie)
                     .GetJsonAsync<Api.League.ApiLeague>();
 
                 this.logger.Log($"Fetched {this.fplLeague.League.Name}");
