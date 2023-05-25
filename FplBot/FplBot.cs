@@ -1106,13 +1106,13 @@ namespace FplBot
                 MimeMessage message = new MimeMessage();
                 message.Subject = "Weekly update from your friendly FPL bot!";
                 message.Body = multipart;
-                message.From.Add(new MailboxAddress(this.emailFrom));
+                message.From.Add(new MailboxAddress("Oskana FPL Bot", this.emailFrom));
 
                 foreach (var r in this.recipients)
                 {
                     if (!string.IsNullOrEmpty(r))
                     {
-                        message.To.Add(new MailboxAddress(r));
+                        message.To.Add(new MailboxAddress(r, r));
                     }
                 }
 
