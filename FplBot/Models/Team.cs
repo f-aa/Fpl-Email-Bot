@@ -1,19 +1,19 @@
-﻿using FplBot.Api.Team;
-using System.Collections.Generic;
+﻿using FplBot.Api.Picks;
+using FplBot.Api.Team;
 
-namespace FplBot.Data
+namespace FplBot.Models
 {
-    internal class FplTeamEntry
+    public class Team
     {
         public long Id { get; set; }
 
         public string Name { get; set; }
 
-        public List<ApiFplTeamEvents> Current { get; set; }
+        public List<ApiTeamEvents> Current { get; set; }
 
-        public List<ApiFplTeamPreviousSeasons> Past { get; set; }
+        public List<ApiTeamPreviousSeasons> Past { get; set; }
 
-        public List<ApiFplTeamChip> Chips { get; set; }
+        public List<ApiChip> Chips { get; set; }
 
         public int TotalWeeklySingleWins { get; set; }
 
@@ -22,6 +22,8 @@ namespace FplBot.Data
         public int FoiledByDanDaviesRule { get; set; }
 
         public float TotalWeeklyWins { get; set; }
+
+        public ApiSquad? Squad { get; internal set; }
 
         public List<string> WinWeeks = new List<string>();
     }

@@ -1,22 +1,22 @@
 ﻿namespace FplBot.Api.Team
 {
+    using Newtonsoft.Json;
     using System;
     using System.Collections.Generic;
-    using Newtonsoft.Json;
 
-    public partial class ApiFplTeam
+    public partial class ApiTeamHistory
     {
         [JsonProperty("current", NullValueHandling = NullValueHandling.Ignore)]
-        public List<ApiFplTeamEvents> Current { get; set; }
+        public List<ApiTeamEvents> Current { get; set; }
 
         [JsonProperty("past", NullValueHandling = NullValueHandling.Ignore)]
-        public List<ApiFplTeamPreviousSeasons> Past { get; set; }
+        public List<ApiTeamPreviousSeasons> Past { get; set; }
 
         [JsonProperty("chips", NullValueHandling = NullValueHandling.Ignore)]
-        public List<ApiFplTeamChip> Chips { get; set; }
+        public List<ApiChip> Chips { get; set; }
     }
 
-    public partial class ApiFplTeamEvents
+    public partial class ApiTeamEvents
     {
         [JsonProperty("event", NullValueHandling = NullValueHandling.Ignore)]
         public long? Event { get; set; }
@@ -46,7 +46,7 @@
         public long? PointsOnBench { get; set; }
     }
 
-    public partial class ApiFplTeamPreviousSeasons
+    public partial class ApiTeamPreviousSeasons
     {
         [JsonProperty("season_name", NullValueHandling = NullValueHandling.Ignore)]
         public string SeasonName { get; set; }
@@ -58,7 +58,7 @@
         public long? Rank { get; set; }
     }
 
-    public partial class ApiFplTeamChip
+    public partial class ApiChip
     {
         [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
         public string Name { get; set; }

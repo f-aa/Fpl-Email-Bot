@@ -4,7 +4,7 @@
     using System;
     using System.Collections.Generic;
 
-    public partial class ApiSoccerPlayerSummary
+    public partial class ApiPlayerSummary
     {
         [JsonProperty("history_past", NullValueHandling = NullValueHandling.Ignore)]
         public List<ApiSoccerPlayerHistoryPast> HistoryPast { get; set; }

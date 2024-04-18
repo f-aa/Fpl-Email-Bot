@@ -1,6 +1,6 @@
-﻿namespace FplBot.Data
+﻿namespace FplBot.Models
 {
-    internal struct TeamWeeklyResult
+    public struct WeeklyResult
     {
         internal long Id { get; set; }
 
@@ -32,7 +32,7 @@
         /// <summary>
         /// Score after points hits
         /// </summary>
-        internal long Points => this.ScoreBeforeHits - this.HitsTakenCost;
+        internal long Points => ScoreBeforeHits - HitsTakenCost;
 
         /// <summary>
         /// Total amount of points
@@ -53,7 +53,7 @@
         /// Points for this game week
         /// </summary>
         internal long GameWeekPoints { get; set; }
-        
+
         /// <summary>
         /// The position in the mini-league this team reached this week
         /// </summary>
@@ -67,6 +67,6 @@
         /// <summary>
         /// The difference between last week and this week
         /// </summary>
-        internal long PositionChangedSinceLastWeek => this.PreviousWeekPosition - this.CurrentWeekPosition;
+        internal long PositionChangedSinceLastWeek => PreviousWeekPosition - CurrentWeekPosition;
     }
 }

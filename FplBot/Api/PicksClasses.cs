@@ -4,7 +4,7 @@
     using Newtonsoft.Json;
     using System.Collections.Generic;
 
-    public partial class ApiFplTeamPicks
+    public partial class ApiSquad
     {
         [JsonProperty("active_chip")]
         public object ActiveChip { get; set; }
@@ -13,7 +13,7 @@
         public List<ApiFplAutomaticSub> AutomaticSubs { get; set; }
 
         [JsonProperty("entry_history", NullValueHandling = NullValueHandling.Ignore)]
-        public ApiFplTeamEvents EntryHistory { get; set; }
+        public ApiTeamEvents EntryHistory { get; set; }
 
         [JsonProperty("picks", NullValueHandling = NullValueHandling.Ignore)]
         public List<ApiFplPick> Picks { get; set; }

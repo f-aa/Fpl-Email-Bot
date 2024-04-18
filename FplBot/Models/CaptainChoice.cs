@@ -1,4 +1,4 @@
-﻿namespace FplBot.Data
+﻿namespace FplBot.Models
 {
     internal struct CaptainChoice
     {
@@ -20,19 +20,19 @@
 
         internal bool VicePlayed { get; set; }
 
-        internal bool BothBlanked => !(this.CaptainPlayed || this.VicePlayed);
+        internal bool BothBlanked => !(CaptainPlayed || VicePlayed);
 
         internal long ActivePlayerId
         {
             get
             {
-                if (this.CaptainPlayed)
+                if (CaptainPlayed)
                 {
-                    return this.CaptainId;
+                    return CaptainId;
                 }
-                else if (this.VicePlayed)
+                else if (VicePlayed)
                 {
-                    return this.ViceId;
+                    return ViceId;
                 }
                 else
                 {
@@ -41,9 +41,9 @@
             }
         }
 
-        internal long EventScore => this.CaptainPlayed ? this.CaptainEventPoints : this.ViceEventPoints;
+        internal long EventScore => CaptainPlayed ? CaptainEventPoints : ViceEventPoints;
 
-        internal long EventScoreMultiplied => this.CaptainPlayed ? this.CaptainEventPoints * this.CaptainMultiplier : this.ViceEventPoints * this.ViceMultiplier;
+        internal long EventScoreMultiplied => CaptainPlayed ? CaptainEventPoints * CaptainMultiplier : ViceEventPoints * ViceMultiplier;
 
     }
 }

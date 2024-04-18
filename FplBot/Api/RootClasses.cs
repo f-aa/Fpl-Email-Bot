@@ -7,7 +7,7 @@
     public partial class FplRoot
     {
         [JsonProperty("elements", NullValueHandling = NullValueHandling.Ignore)]
-        public List<Player.ApiSoccerPlayer> Elements { get; set; }
+        public List<Player.ApiPlayerDetail> Elements { get; set; }
 
         [JsonProperty("total-players", NullValueHandling = NullValueHandling.Ignore)]
         public long? TotalPlayers { get; set; }
@@ -37,7 +37,7 @@
         public long? CurrentEvent { get; set; }
 
         [JsonProperty("teams", NullValueHandling = NullValueHandling.Ignore)]
-        public List<Team> Teams { get; set; }
+        public List<ApiTeam> Teams { get; set; }
 
         [JsonProperty("stats_options", NullValueHandling = NullValueHandling.Ignore)]
         public List<StatsOption> StatsOptions { get; set; }
@@ -544,7 +544,7 @@
         public string Key { get; set; }
     }
 
-    public partial class Team
+    public partial class ApiTeam
     {
         [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
         public long? Id { get; set; }

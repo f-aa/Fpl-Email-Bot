@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace FplBot.Logging
+﻿namespace FplBot.Logging
 {
     /// <summary>
     /// A basic logging class

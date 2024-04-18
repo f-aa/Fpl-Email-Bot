@@ -1,13 +1,10 @@
 ﻿using Flurl.Http;
 using FplBot.Logging;
-using System;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
 
 namespace FplBot.Api
 {
+    [Obsolete("FPL no longer requires authentication. Leaving this behind in case they change their mind.")]
     internal class Authentication
     {
         private readonly Uri FplAuthUri = new Uri("https://users.premierleague.com");
@@ -28,6 +25,7 @@ namespace FplBot.Api
 
         }
 
+        // This doesn't work with the new Flurl client, but keeping it around in case FPL turns authentication requirements back on
         internal async Task<Cookie> GetCookie()
         {
             if (this.authCookie != null && !this.authCookie.Expired)
@@ -42,12 +40,12 @@ namespace FplBot.Api
 
                 var response = await flurlClient
                     .Request("/accounts/login/")
-                    .AllowHttpStatus(HttpStatusCode.Redirect)
+                    .AllowHttpStatus("302")
                     .WithHeader("Content-Type", "application/x-www-form-urlencoded")
                     .PostStringAsync($"login={this.username}&password={this.password}&app=plfpl-web&redirect_uri=https://fantasy.premierleague.com/")
                     .ConfigureAwait(false);
 
-                if (flurlClient.Cookies.Count() == 0)
+                if (flurlClient.Cookies.Count == 0)
                 {
                     this.logger.Log($"Couldn't fetch auth cookie for {this.username}. Please make sure your username and password is correct.");
                     throw new Exception("Failed to get auth cookie.");

@@ -1,4 +1,4 @@
-﻿namespace FplBot.Data
+﻿namespace FplBot.Models
 {
     internal struct AutomaticSub
     {
