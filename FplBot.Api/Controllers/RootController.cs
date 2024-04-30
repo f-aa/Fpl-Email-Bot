@@ -13,7 +13,7 @@ namespace FplBot.Api.Controllers
         {
             await this.job.Run(null, null);
 
-            return this.Ok();
+            return this.Ok("Completed.");
         }
     }
 }

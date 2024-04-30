@@ -67,7 +67,7 @@ namespace FplBot
             var host = builder.Build();
             using (host)
             {
-                //await host.RunAsync();
+                await host.RunAsync();
             }
         }
     }

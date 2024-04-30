@@ -32,8 +32,6 @@ namespace FplBot.Api
             builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
             builder.Services.Configure<AzureOptions>(builder.Configuration.GetSection("Azure"));
 
-            // builder.Services.Configure<FplOptions>(options => builder.Configuration.Bind("Field", options));
-
             builder.Services.AddControllers();
 
             var app = builder.Build();
