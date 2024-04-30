@@ -260,3 +260,6 @@ paket-files/
 __pycache__/
 *.pyc
 /FplBot/appsettings.json
+/FplBot.Api/appsettings.json
+/FplBot.Api/standings.txt
+/FplBot.Api/weeklyWins.txt
