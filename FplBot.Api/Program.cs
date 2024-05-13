@@ -10,6 +10,8 @@ namespace FplBot.Api
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            builder.Services.AddApplicationInsightsTelemetry();
+
             builder.Services.AddScoped<FplJob>();
 
             builder.Services.AddScoped<IFplService, FplService>();
