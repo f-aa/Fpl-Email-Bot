@@ -48,19 +48,13 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: .net-app
-      
-      - name: Login to Azure
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_532919D978EC47B48F9DDDF339A0DE0F }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_810966EF2CA0447F82310C85FA82BDE6 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_FDE0B870751B4B71A8DF84F7C7BCC0C7 }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
-        uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v3
         with:
-          app-name: 'oskana-fpl'
+          app-name: 'oskana'
           slot-name: 'Production'
           package: .
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_B4D80F5E204E454FAE3E3E9BC1D0999E }}
           
